@@ -1,4 +1,5 @@
 ﻿using System;
+using wRPC;
 
 namespace MessengerServer
 {
@@ -6,7 +7,11 @@ namespace MessengerServer
     {
         static void Main()
         {
-            Console.WriteLine("Hello World!");
+            using (var listener = new Listener(port: 1234))
+            {
+                listener.StartAccept();
+                Console.ReadLine();
+            }
         }
     }
 }
