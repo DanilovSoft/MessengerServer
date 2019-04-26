@@ -1,4 +1,5 @@
-﻿using System;
+﻿using MessengerServer.Controllers;
+using System;
 using wRPC;
 
 namespace MessengerServer
@@ -7,7 +8,7 @@ namespace MessengerServer
     {
         static void Main()
         {
-            using (var listener = new Listener(port: 1234))
+            using (var listener = new Listener(port: 1234, new AuthController()))
             {
                 listener.StartAccept();
                 Console.ReadLine();
