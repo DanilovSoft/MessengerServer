@@ -16,4 +16,9 @@
     <ProjectReference Include="..\Contract\Contract.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Folder Include="Attributes\" />
+    <Folder Include="Exceptions\" />
+  </ItemGroup>
+
 </Project>

@@ -9,7 +9,7 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Contract", "Contract\Contra
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "wRPC", "wRPC\wRPC.csproj", "{1B7F7C87-34D0-4DF4-84CF-AAE97101F791}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "StubClient", "StubClient\StubClient.csproj", "{CFF18421-F020-4D7A-8F0A-D83ACCE53622}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "StubClient", "StubClient\StubClient.csproj", "{CFF18421-F020-4D7A-8F0A-D83ACCE53622}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
