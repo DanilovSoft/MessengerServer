@@ -2,15 +2,16 @@
 using System;
 using System.Collections.Generic;
 using System.Text;
+using System.Threading.Tasks;
 using wRPC;
 
 namespace MessengerServer.Controllers
 {
-    internal class AuthController : BaseController, IUnauthorized
+    internal class AuthController : BaseController
     {
-        public bool Authorize(string login, string password)
+        public Task<bool> Authorize(string login, string password)
         {
-            return true;
+            return Task.FromResult(true);
         }
     }
 }

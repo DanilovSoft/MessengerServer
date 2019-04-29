@@ -15,7 +15,7 @@ namespace StubClient
 {
     class Program
     {
-        static async Task Main(string[] args)
+        static async Task Main()
         {
             using (var cli = new DanilovSoft.WebSocket.ClientWebSocket())
             {
@@ -24,8 +24,8 @@ namespace StubClient
                     ActionName = "Authorize",
                     Args = new[]
                     {
-                        MessagePackObject.FromObject("Login"),
-                        MessagePackObject.FromObject("Password"),
+                        new Request.Arg("Login", "login"),
+                        new Request.Arg("Password", "password")
                     }
                 };
 
@@ -52,6 +52,10 @@ namespace StubClient
                     var ser = MessagePackSerializer.Get<Response>();
                     resp = ser.Unpack(mem);
                 }
+
+                if (resp.Error != null)
+                    throw new InvalidOperationException(resp.Error);
+
 
                 Thread.Sleep(-1);
             }

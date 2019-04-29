@@ -8,7 +8,7 @@ namespace MessengerServer
     {
         static void Main()
         {
-            using (var listener = new Listener(port: 1234, new AuthController()))
+            using (var listener = new Listener(port: 1234, typeof(AuthController)))
             {
                 listener.StartAccept();
                 Console.ReadLine();

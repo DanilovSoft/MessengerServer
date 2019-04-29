@@ -14,30 +14,53 @@ using System.Threading;
 using System.Threading.Tasks;
 using MyWebSocket = DanilovSoft.WebSocket.WebSocket;
 using MsgPack.Serialization;
+using MsgPack;
+using System.Diagnostics;
+using Ninject;
 
 namespace wRPC
 {
-    public class Context
+    public sealed class Context : IDisposable
     {
+        private readonly Type _controllerType;
+        private readonly StandardKernel _ioc;
+        private bool _disposed;
         public MyWebSocket WebSocket { get; }
-        private BaseController _controller { get; }
 
-        public Context(MyWebSocket webSocket, BaseController controller)
+        public Context(MyWebSocket webSocket, Type defaultController)
         {
             WebSocket = webSocket;
-            _controller = controller;
+            _ioc = new StandardKernel();
+            _ioc.Bind(defaultController).ToSelf();
+            _controllerType = defaultController;
         }
 
         /// <summary>
         /// Вызывает запрошенный клиентом метод и возвращает результат.
         /// </summary>
-        public object InvokeAction(Request request)
+        private async Task<object> InvokeActionAsync(Request request)
         {
-            MethodInfo method = _controller.GetType().GetMethod(request.ActionName);
-            object result = method.Invoke(_controller, request.Args.Select(x => x.ToObject()).ToArray());
+            // Ядро IOC.
+            // Резолвим контроллер.
+            object controller = _ioc.Get(_controllerType);
+
+            // Ищем делегат запрашиваемой функции.
+            MethodInfo method = _controllerType.GetMethod(request.ActionName);
+
+            object[] args = request.Args.Select(x => x.Value.ToObject()).ToArray();
+
+            // Вызов делегата.
+            object result = method.Invoke(controller, args);
+
+            // Результатом делегата может быть Task.
+            result = await DynamicAwaiter.ToAsync(result);
+
             return result;
         }
 
+        /// <summary>
+        /// Запускает цикл обработки запросов этого клиента.
+        /// </summary>
         internal void StartReceive()
         {
             ReceaveAsync();
@@ -45,65 +68,118 @@ namespace wRPC
 
         private async void ReceaveAsync()
         {
+            // Бесконечно обрабатываем запросы пользователя.
             while (true)
             {
                 Request request = null;
+
+                // Арендуем память.
                 byte[] buffer = ArrayPool<byte>.Shared.Rent(4096);
                 try
                 {
+                    #region Читаем запрос из сокета
+
                     ValueWebSocketReceiveResult message;
                     try
                     {
                         message = await WebSocket.ReceiveAsync(buffer.AsMemory(), CancellationToken.None);
                     }
-                    catch (Exception)
+                    catch (Exception ex)
+                    // Обрыв соединения.
                     {
+                        Debug.WriteLine(ex);
                         return;
                     }
+                    #endregion
 
-                    if (message.EndOfMessage)
+                    #region Десериализуем запрос
+
+                    using (var mem = new MemoryStream(buffer, 0, message.Count))
                     {
-                        using (var mem = new MemoryStream(buffer, 0, message.Count))
+                        try
                         {
-                            //var ser = new JsonSerializer();
-                            //using (var bson = new BsonDataReader(mem))
-                            //{
-                            //    request = ser.Deserialize<Request>(bson);
-                            //}
-                            //request = ProtoBuf.Serializer.Deserialize<Request>(mem);
                             request = MessagePackSerializer.Get<Request>().Unpack(mem);
                         }
-                    }
-                    else
-                    {
+                        catch (Exception ex)
+                        {
+                            Debug.WriteLine(ex);
 
+                            // Запрос клиента не удалось десериализовать.
+                            await SendErrorResponseAsync(request, "Invalid Request Format Error");
+                        }
                     }
+                    #endregion
                 }
                 finally
                 {
+                    // Возвращаем память.
                     ArrayPool<byte>.Shared.Return(buffer);
                 }
 
-                OnRequest(request);
+                // Не блокируем обработку следующих запросов клиента.
+                ThreadPool.UnsafeQueueUserWorkItem(req =>
+                {
+                    StartProcessRequestAsync((Request)req);
+                }, state: request /* Избавляемся от замыкания */);
             }
         }
 
-        private void OnRequest(Request request)
+        /// <summary>
+        /// Выполняет запрос клиента и отправляет ему результат или ошибку.
+        /// </summary>
+        private async void StartProcessRequestAsync(Request request)
         {
-            object result;
+            Response response;
+            
             try
             {
-                result = InvokeAction(request);
+                // Выполнить запрашиваемую функцию
+                object result = await InvokeActionAsync(request);
+
+                // Запрашиваемая функция выполнена успешно.
+                // Подготовить возвращаемый результат.
+                response = OkResponse(request, result);
             }
             catch (Exception ex)
+            // Ошибка обработки запроса.
             {
-                throw;
+                Debug.WriteLine(ex);
+
+                // Подготовить результат с ошибкой.
+                response = ErrorResponse(request, "Internal Server Error");
             }
 
-            SendResponse(new Response(request.Uid, result));
+            try
+            {
+                // Сериализовать и отправить результат.
+                await SendResponseAsync(response);
+            }
+            catch (Exception ex)
+            // Обрыв соединения.
+            {
+                Debug.WriteLine(ex);
+
+                // Ничего не предпринимаем.
+                return;
+            }
         }
 
-        private async void SendResponse(Response response)
+        private async Task SendErrorResponseAsync(Request request, string errorMessage)
+        {
+            await SendResponseAsync(ErrorResponse(request, errorMessage));
+        }
+
+        private Response ErrorResponse(Request request, string errorMessage)
+        {
+            return new Response(request.Uid, MessagePackObject.Nil, errorMessage);
+        }
+
+        private Response OkResponse(Request request, object result)
+        {
+            return new Response(request.Uid, MessagePackObject.FromObject(result), null);
+        }
+
+        private async Task SendResponseAsync(Response response)
         {
             byte[] buffer;
             using (var mem = new MemoryStream())
@@ -112,14 +188,15 @@ namespace wRPC
                 buffer = mem.ToArray();
             }
 
-            try
-            {
-                await WebSocket.SendAsync(buffer.AsMemory(), WebSocketMessageType.Binary, true, CancellationToken.None);
-            }
-            catch (Exception)
-            {
+            await WebSocket.SendAsync(buffer.AsMemory(), WebSocketMessageType.Binary, true, CancellationToken.None);
+        }
 
-                throw;
+        public void Dispose()
+        {
+            if(!_disposed)
+            {
+                _disposed = true;
+                _ioc.Dispose();
             }
         }
     }
