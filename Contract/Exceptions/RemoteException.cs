@@ -6,6 +6,7 @@ namespace Contract
 {
     /// <summary>
     /// Исключение для передачи информации об ошибке удаленному подключению.
+    /// Исключение этого типа прозрачно транслируется на удаленное подключение.
     /// </summary>
     [Serializable]
     public class RemoteException : Exception

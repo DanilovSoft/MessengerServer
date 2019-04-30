@@ -32,6 +32,10 @@ namespace wRPC
         /// Сервер который принял текущее соединение.
         /// </summary>
         private readonly Listener _listener;
+        /// <summary>
+        /// Объект синхронизации текущего экземпляра.
+        /// </summary>
+        private readonly object _syncObj = new object();
         public MyWebSocket WebSocket { get; }
         public bool IsAuthorized { get; private set; }
         public int? UserId { get; private set; }
@@ -64,22 +68,37 @@ namespace wRPC
 
             // Потокобезопасная отправка.
             // TODO
+            throw new NotImplementedException();
             //await WebSocket.SendAsync(buffer, WebSocketMessageType.Binary, endOfMessage: true);
         }
 
+        /// <summary>
+        /// Производит авторизацию текущего подключения.
+        /// </summary>
+        /// <param name="userId"></param>
+        /// <exception cref="RemoteException"/>
         public void Authorize(int userId)
         {
-            // Авторизуем контекст пользователя.
-            UserId = userId;
-            IsAuthorized = true;
+            // Функцию могут вызвать из нескольких потоков.
+            lock (_syncObj)
+            {
+                if (!IsAuthorized)
+                {
+                    // Авторизуем контекст пользователя.
+                    UserId = userId;
+                    IsAuthorized = true;
 
-            // Добавляем соединение в словарь.
-            _connections = AddConnection(userId);
+                    // Добавляем соединение в словарь.
+                    _connections = AddConnection(userId);
 
-            // Подпишемся на дисконнект.
-            // TODO
-            // Событие сработает даже если соединение уже разорвано.
-            WebSocket.Disconnected += WebSocket_Disconnected;
+                    // Подпишемся на дисконнект.
+                    // TODO
+                    // Событие сработает даже если соединение уже разорвано.
+                    WebSocket.Disconnected += WebSocket_Disconnected;
+                }
+                else
+                    throw new RemoteException($"You are already authorized as 'UserId: {UserId}'", ErrorCode.BadRequest);
+            }
         }
 
         /// <summary>
@@ -147,6 +166,9 @@ namespace wRPC
             if (method == null)
                 throw new RemoteException($"Unable to find requested action \"{request.ActionName}\"", ErrorCode.ActionNotFound);
 
+            // Проверить доступ к функции.
+            PermissionCheck(method, controllerType);
+
             // Активируем контроллер через IoC.
             using (var controller = (BaseController)_ioc.Get(controllerType))
             {
@@ -161,11 +183,32 @@ namespace wRPC
                 object result = method.Invoke(controller, args);
 
                 // Результатом делегата может быть Task.
-                result = await DynamicAwaiter.ToAsync(result);
+                result = await DynamicAwaiter.FromAsync(result);
 
                 // Результат успешно получен.
                 return result;
             }
+        }
+
+        /// <summary>
+        /// Проверяет доступность запрашиваемого метода пользователем.
+        /// </summary>
+        /// <exception cref="RemoteException"/>
+        private void PermissionCheck(MethodInfo method, Type controllerType)
+        {
+            // Проверить доступен ли метод пользователю.
+            if (IsAuthorized)
+                return;
+
+            // Разрешить если метод помечен как разрешенный для не авторизованных пользователей.
+            if (Attribute.IsDefined(method, typeof(AllowAnonymousAttribute)))
+                return;
+
+            // Разрешить если контроллер помечен как разрешенный для не акторизованных пользователей.
+            if (Attribute.IsDefined(controllerType, typeof(AllowAnonymousAttribute)))
+                return;
+
+            throw new RemoteException("The request requires user authentication", ErrorCode.Unauthorized);
         }
 
         /// <summary>
@@ -193,6 +236,9 @@ namespace wRPC
             return controllerType;
         }
 
+        /// <summary>
+        /// Производит маппинг аргументов запроса в соответствии с делегатом.
+        /// </summary>
         private object[] GetParameters(MethodInfo method, Request request)
         {
             ParameterInfo[] par = method.GetParameters();
@@ -256,6 +302,8 @@ namespace wRPC
                         // Ошибка десериализации запроса.
                         {
                             Debug.WriteLine(ex);
+
+                            // Подготоваить ответ с ошибкой.
                             errorResponse = request.ErrorResponse("Invalid Request Format Error", ErrorCode.InvalidRequestFormat);
                         }
                     }
@@ -268,33 +316,33 @@ namespace wRPC
                 }
 
                 if(errorResponse == null)
+                // Запрос десериализован без ошибок.
                 {
-                    // Не блокируем обработку следующих запросов этого клиента.
+                    // Начать выполнение запроса не блокируя обработку следующих запросов этого клиента.
                     ThreadPool.UnsafeQueueUserWorkItem(StartProcessRequestAsync, request);
                 }
                 else
                 // Произошла ошибка при разборе запроса.
                 {
-                    SendErrorResponse(errorResponse);
+                    // Отправить результат с ошибкой не блокируя обработку следующих запросов этого клиента.
+                    ThreadPool.UnsafeQueueUserWorkItem(SendErrorResponse, errorResponse);
                 }
             }
         }
 
-        private void SendErrorResponse(Response errorResponse)
+        private async void SendErrorResponse(object state)
         {
-            // Не блокируем обработку следующих запросов этого клиента.
-            ThreadPool.UnsafeQueueUserWorkItem(async r =>
+            var errorResponse = (Response)state;
+
+            try
             {
-                try
-                {
-                    await SendResponseAsync((Response)r);
-                }
-                catch (Exception ex)
-                // Обрыв соединения.
-                {
-                    Debug.WriteLine(ex);
-                }
-            }, errorResponse);
+                await SendResponseAsync(errorResponse);
+            }
+            catch (Exception ex)
+            // Обрыв соединения.
+            {
+                Debug.WriteLine(ex);
+            }
         }
 
         /// <summary>
@@ -303,31 +351,9 @@ namespace wRPC
         private async void StartProcessRequestAsync(object state)
         {
             var request = (Request)state;
-            Response response;
-            
-            try
-            {
-                // Выполнить запрашиваемую функцию
-                object result = await InvokeActionAsync(request);
 
-                // Запрашиваемая функция выполнена успешно.
-                // Подготовить возвращаемый результат.
-                response = OkResponse(request, result);
-            }
-            catch (RemoteException ex)
-            // Дружелюбная ошибка.
-            {
-                // Подготовить результат с ошибкой.
-                response = request.ErrorResponse(ex);
-            }
-            catch (Exception ex)
-            // Злая ошибка обработки запроса.
-            {
-                Debug.WriteLine(ex);
-
-                // Подготовить результат с ошибкой.
-                response = request.ErrorResponse("Internal Server Error", ErrorCode.InternalError);
-            }
+            // Выполнить запрос и получить инкапсулированный результат.
+            Response response = await GetResponseAsync(request);
 
             try
             {
@@ -344,6 +370,36 @@ namespace wRPC
             }
         }
 
+        /// <summary>
+        /// Выполняет запрос клиента и инкапсулирует результат в <see cref="Response"/>. Не бросает исключения.
+        /// </summary>
+        private async Task<Response> GetResponseAsync(Request request)
+        {
+            try
+            {
+                // Выполнить запрашиваемую функцию
+                object result = await InvokeActionAsync(request);
+
+                // Запрашиваемая функция выполнена успешно.
+                // Подготовить возвращаемый результат.
+                return OkResponse(request, result);
+            }
+            catch (RemoteException ex)
+            // Дружелюбная ошибка.
+            {
+                // Подготовить результат с ошибкой.
+                return request.ErrorResponse(ex);
+            }
+            catch (Exception ex)
+            // Злая ошибка обработки запроса.
+            {
+                Debug.WriteLine(ex);
+
+                // Подготовить результат с ошибкой.
+                return request.ErrorResponse("Internal Server Error", ErrorCode.InternalError);
+            }
+        }
+
         private Response OkResponse(Request request, object result)
         {
             return new Response(request.Uid, MessagePackObject.FromObject(result), error: null, errorCode: null);
@@ -351,14 +407,8 @@ namespace wRPC
 
         private async Task SendResponseAsync(Response response)
         {
-            byte[] buffer;
-            using (var mem = new MemoryStream())
-            {
-                MessagePackSerializer.Get<Response>().Pack(mem, response);
-                buffer = mem.ToArray();
-            }
-
-            await WebSocket.SendAsync(buffer.AsMemory(), WebSocketMessageType.Binary, true, CancellationToken.None);
+            byte[] buffer = response.Serialize();
+            await WebSocket.SendAsync(buffer, WebSocketMessageType.Binary, endOfMessage: true, CancellationToken.None);
         }
     }
 }

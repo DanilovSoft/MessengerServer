@@ -31,5 +31,17 @@ namespace wRPC
             }
             return buffer;
         }
+
+        public static byte[] Serialize(this Response request)
+        {
+            byte[] buffer;
+            using (var mem = new MemoryStream())
+            {
+                var ser = MessagePackSerializer.Get<Response>();
+                ser.Pack(mem, request);
+                buffer = mem.ToArray();
+            }
+            return buffer;
+        }
     }
 }

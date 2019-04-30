@@ -6,12 +6,13 @@ namespace Contract
 {
     public enum ErrorCode : short
     {
+        BadRequest = 400,
+        Unauthorized = 401,
         ActionNotFound = 404,
-        InternalError = 500,
-
         /// <summary>
         /// Unprocessable Entity.
         /// </summary>
         InvalidRequestFormat = 422,
+        InternalError = 500,
     }
 }

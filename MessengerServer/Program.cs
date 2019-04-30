@@ -17,7 +17,7 @@ namespace MessengerServer
                 {
                     if (createdNew)
                     {
-                        listener.IOC.Bind<SqlContext>().ToSelf();
+                        listener.IOC.Bind<ISqlContext>().To<SqlContext>();
 
                         listener.StartAccept();
                         while (true)
@@ -31,8 +31,12 @@ namespace MessengerServer
         }
     }
 
-    public class SqlContext
+    public class SqlContext : ISqlContext
     {
 
+    }
+
+    public interface ISqlContext
+    {
     }
 }

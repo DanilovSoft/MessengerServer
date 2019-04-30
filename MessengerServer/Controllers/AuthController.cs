@@ -11,19 +11,20 @@ namespace MessengerServer.Controllers
 {
     internal class AuthController : BaseController
     {
-        public AuthController(SqlContext sqlContext)
+        public AuthController(ISqlContext sqlContext)
         {
             
         }
 
-        public Task<bool> Authorize(string login, string password)
+        [AllowAnonymous]
+        public bool Authorize(string login, string password)
         {
             // Авторизовываем текущее подключение.
             Context.Authorize(userId: 123456);
 
             Console.WriteLine($"Авторизован пользователь: \"{login}\"");
             
-            return Task.FromResult(true);
+            return true;
         }
     }
 }

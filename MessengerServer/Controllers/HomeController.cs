@@ -9,9 +9,9 @@ namespace MessengerServer.Controllers
 {
     public class HomeController : BaseController
     {
-        public HomeController(SqlContext sql)
+        public HomeController(ISqlContext sql)
         {
-
+           
         }
 
         public string SendMessage(string message, int userId)

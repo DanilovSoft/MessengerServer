@@ -66,7 +66,7 @@ namespace Contract
         #region Debug
         [MessagePackIgnore]
         [DebuggerBrowsable(DebuggerBrowsableState.Never)]
-        private string DebugDisplay => "{" + $"\"{(Error == null ? $"Result: {Result}" : $"Error: {ErrorCode}")}\"" + "}";
+        private string DebugDisplay => "{" + $"{(Error == null ? $"Result: {Result}" : $"Error: \"{Error}\"")}" + "}";
         #endregion
 
         [MessagePackMember(1)]
