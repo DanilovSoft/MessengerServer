@@ -68,7 +68,7 @@ namespace wRPC
 
             // Потокобезопасная отправка.
             // TODO
-            throw new NotImplementedException();
+            //throw new NotImplementedException();
             //await WebSocket.SendAsync(buffer, WebSocketMessageType.Binary, endOfMessage: true);
         }
 
@@ -92,7 +92,6 @@ namespace wRPC
                     _connections = AddConnection(userId);
 
                     // Подпишемся на дисконнект.
-                    // TODO
                     // Событие сработает даже если соединение уже разорвано.
                     WebSocket.Disconnected += WebSocket_Disconnected;
                 }
