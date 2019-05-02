@@ -1,5 +1,6 @@
 ﻿using Contract;
 using DanilovSoft.WebSocket;
+using MsgPack.Serialization;
 using Ninject;
 using System;
 using System.Buffers;
@@ -32,6 +33,12 @@ namespace wRPC
         public StandardKernel IOC { get; }
         private int _startAccept;
 
+        static Listener()
+        {
+            MessagePackSerializer.PrepareType<Request>();
+            MessagePackSerializer.PrepareType<Response>();
+        }
+
         // ctor.
         public Listener(int port)
         {
@@ -57,7 +64,7 @@ namespace wRPC
 
             foreach (Type controllerType in types)
             {
-                if (controllerType.IsSubclassOf(typeof(BaseController)))
+                if (controllerType.IsSubclassOf(typeof(Controller)))
                 {
                     controllers.Add(controllerType.Name, controllerType);
                 }

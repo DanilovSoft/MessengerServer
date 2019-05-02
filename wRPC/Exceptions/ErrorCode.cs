@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using System.Text;
 
-namespace Contract
+namespace wRPC
 {
     public enum ErrorCode : short
     {

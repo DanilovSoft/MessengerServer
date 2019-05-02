@@ -11,29 +11,32 @@ namespace MessengerServer
 
         static void Main()
         {
-            using (var listener = new Listener(port: 1234))
+            Console.Title = "Сервер";
+            using (var mutex = new Mutex(initiallyOwned: true, $"MessengerServer_Port:{Port}", out bool createdNew))
             {
-                using (var mutex = new Mutex(initiallyOwned: true, $"MessengerServer_Port:{Port}", out bool createdNew))
+                if (createdNew)
                 {
-                    if (createdNew)
+                    // Прогрев.
+                    Warmup.DoWarmup();
+                    using (var listener = new Listener(Port))
                     {
                         listener.IOC.Bind<ISqlContext>().To<SqlContext>();
 
                         listener.StartAccept();
-                        while (true)
-                        {
-                            Console.ReadKey(intercept: true);
-                        }
+
+                        Thread.Sleep(-1);
                     }
-                    mutex.ReleaseMutex();
                 }
             }
         }
     }
 
-    public class SqlContext : ISqlContext
+    public class SqlContext : IDisposable, ISqlContext
     {
-
+        public void Dispose()
+        {
+            
+        }
     }
 
     public interface ISqlContext

@@ -3,18 +3,20 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Text;
 using System.Threading;
+using System.Threading.Tasks;
 using wRPC;
+using wRPC.Contract;
 
 namespace MessengerServer.Controllers
 {
-    public class HomeController : BaseController
+    public class HomeController : Controller, IHomeController
     {
         public HomeController(ISqlContext sql)
         {
            
         }
 
-        public string SendMessage(string message, int userId)
+        public Task<string> SendMessage(string message, int userId)
         {
             Console.WriteLine($"Получено сообщение: \"{message}\"");
 
@@ -39,7 +41,17 @@ namespace MessengerServer.Controllers
                     }, null);
                 }
             }
-            return message;
+            return Task.FromResult(message);
+        }
+
+        public void SyncTest()
+        {
+            
+        }
+
+        public Task SyncTestAsync()
+        {
+            return Task.CompletedTask;
         }
     }
 }

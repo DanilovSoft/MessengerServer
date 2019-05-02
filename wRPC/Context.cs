@@ -18,14 +18,17 @@ using MsgPack;
 using System.Diagnostics;
 using Ninject;
 using System.Collections.Concurrent;
+using Ninject.Activation.Blocks;
 
 namespace wRPC
 {
     [DebuggerDisplay("{DebugDisplay,nq}")]
     public sealed class Context
     {
+        #region Debug
         [DebuggerBrowsable(DebuggerBrowsableState.Never)]
         private string DebugDisplay => "{" + $"{{{nameof(Context)}}}, UserId = {UserId}" + "}";
+        #endregion
 
         private readonly StandardKernel _ioc;
         /// <summary>
@@ -168,24 +171,31 @@ namespace wRPC
             // Проверить доступ к функции.
             PermissionCheck(method, controllerType);
 
-            // Активируем контроллер через IoC.
-            using (var controller = (BaseController)_ioc.Get(controllerType))
+            // Блок IoC выполнит Dispose всем созданным экземплярам.
+            using (IActivationBlock iocBlock = _ioc.BeginBlock())
             {
-                // Подготавливаем контроллер.
-                controller.Context = this;
-                controller.Listener = _listener;
+                // Активируем контроллер через IoC.
+                using (var controller = (Controller)iocBlock.Get(controllerType))
+                {
+                    // Подготавливаем контроллер.
+                    controller.Context = this;
+                    controller.Listener = _listener;
 
-                // Мапим аргументы по их именам.
-                object[] args = GetParameters(method, request);
+                    // Мапим аргументы по их именам.
+                    object[] args = GetParameters(method, request);
 
-                // Вызов делегата.
-                object result = method.Invoke(controller, args);
+                    // Вызов делегата.
+                    object result = method.Invoke(controller, args);
 
-                // Результатом делегата может быть Task.
-                result = await DynamicAwaiter.FromAsync(result);
+                    if (result != null)
+                    {
+                        // Результатом делегата может быть Task.
+                        result = await DynamicAwaiter.FromAsync(result);
+                    }
 
-                // Результат успешно получен.
-                return result;
+                    // Результат успешно получен.
+                    return result;
+                }
             }
         }
 
@@ -271,15 +281,14 @@ namespace wRPC
                 Response errorResponse = null;
 
                 // Арендуем память.
-                byte[] buffer = ArrayPool<byte>.Shared.Rent(4096);
-                try
+                using (IMemoryOwner<byte> buffer = MemoryPool<byte>.Shared.Rent(4096))
                 {
                     #region Читаем запрос из сокета
 
                     ValueWebSocketReceiveResult message;
                     try
                     {
-                        message = await WebSocket.ReceiveAsync(buffer.AsMemory(), CancellationToken.None);
+                        message = await WebSocket.ReceiveAsync(buffer.Memory, CancellationToken.None);
                     }
                     catch (Exception ex)
                     // Обрыв соединения.
@@ -291,7 +300,7 @@ namespace wRPC
 
                     #region Десериализуем запрос
 
-                    using (var mem = new MemoryStream(buffer, 0, message.Count))
+                    using (var mem = new SpanStream(buffer.Memory.Slice(0, message.Count)))
                     {
                         try
                         {
@@ -308,13 +317,8 @@ namespace wRPC
                     }
                     #endregion
                 }
-                finally
-                {
-                    // Возвращаем память.
-                    ArrayPool<byte>.Shared.Return(buffer);
-                }
 
-                if(errorResponse == null)
+                if (errorResponse == null)
                 // Запрос десериализован без ошибок.
                 {
                     // Начать выполнение запроса не блокируя обработку следующих запросов этого клиента.

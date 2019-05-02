@@ -2,8 +2,8 @@
 
   <PropertyGroup>
     <TargetFramework>netstandard2.0</TargetFramework>
-    <AssemblyName>MessengerServer.Contract</AssemblyName>
-    <RootNamespace>MessengerServer.Contract</RootNamespace>
+    <AssemblyName>wRPC.Contract</AssemblyName>
+    <RootNamespace>wRPC.Contract</RootNamespace>
   </PropertyGroup>
 
   <ItemGroup>

@@ -1,5 +1,4 @@
-﻿using Contract;
-using MsgPack;
+﻿using MsgPack;
 using MsgPack.Serialization;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Bson;
@@ -10,6 +9,9 @@ using System.Net.NetworkInformation;
 using System.Net.WebSockets;
 using System.Threading;
 using System.Threading.Tasks;
+using wRPC.Contract;
+using Contract;
+using wRPC;
 using MyClientWebSocket = DanilovSoft.WebSocket.ClientWebSocket;
 
 namespace StubClient
@@ -18,94 +20,32 @@ namespace StubClient
     {
         static async Task Main()
         {
+            Console.Title = "Клиент";
+
+            #region Debug: Ждем запуск сервера
+
             Mutex mutex = null;
             SpinWait.SpinUntil(() => Mutex.TryOpenExisting($"MessengerServer_Port:{1234}", out mutex));
             mutex.Dispose();
+            #endregion
 
-            using (var cli = new MyClientWebSocket())
+            Warmup.DoWarmup();
+            using (var client = new Client())
             {
-                var request = new Request
-                {
-                    ActionName = "Auth/Authorize",
-                    Args = new[]
-                    {
-                        new Request.Arg("Login", "}{0ТТ@БЬ)Ч"),
-                        new Request.Arg("Password", "P@ssw0rd")
-                    }
-                };
-
-                request.Uid = new object().GetHashCode();
-
-                byte[] buffer;
-                using (var mem = new MemoryStream())
-                {
-                    var ser = MessagePackSerializer.Get<Request>();
-                    ser.Pack(mem, request);
-                    buffer = mem.ToArray();
-                }
+                var authController = client.GetProxy<IAuthController>("Auth");
+                var homeController = client.GetProxy<IHomeController>("Home");
 
                 Console.WriteLine("Авторизация...");
-                Thread.Sleep(1000);
-                await cli.ConnectAsync(new Uri("ws://127.0.0.1:1234"));
-                await cli.SendAsync(new ArraySegment<byte>(buffer), WebSocketMessageType.Binary, true, CancellationToken.None);
-
-                buffer = new byte[4096];
-                ValueWebSocketReceiveResult message = await cli.ReceiveAsync(buffer.AsMemory(), CancellationToken.None);
-
-                Response resp;
-                using (var mem = new MemoryStream(buffer, 0, message.Count))
-                {
-                    var ser = MessagePackSerializer.Get<Response>();
-                    resp = ser.Unpack(mem);
-                }
-
-                resp.EnsureSuccessStatusCode();
-
+                await client.ConnectAsync("127.0.0.1", 1234);
+                bool success = await authController.Authorize(login: "}{0ТТ@БЬ)Ч", password: "P@ssw0rd");
                 while (true)
                 {
                     Console.Write("Введите сообщение: ");
                     string line = Console.ReadLine();
-                    await SendMessageAsync(cli, line);
+                    string reply = await homeController.SendMessage(message: line, userId: 123456);
+                    Console.WriteLine($"Ответ сервера: \"{reply}\"");
                 }
             }
-        }
-
-        private static async Task SendMessageAsync(MyClientWebSocket cli, string messageText)
-        {
-            var request = new Request
-            {
-                ActionName = "SendMessage",
-                Args = new[]
-                {
-                    new Request.Arg("userId", MessagePackObject.FromObject(123456)),
-                    new Request.Arg("message", messageText),
-                }
-            };
-
-            byte[] buffer;
-            using (var mem = new MemoryStream())
-            {
-                var ser = MessagePackSerializer.Get<Request>();
-                ser.Pack(mem, request);
-                buffer = mem.ToArray();
-            }
-
-            await cli.SendAsync(new ArraySegment<byte>(buffer), WebSocketMessageType.Binary, true, CancellationToken.None);
-
-            buffer = new byte[4096];
-            ValueWebSocketReceiveResult message = await cli.ReceiveAsync(buffer.AsMemory(), CancellationToken.None);
-
-            Response resp;
-            using (var mem = new MemoryStream(buffer, 0, message.Count))
-            {
-                var ser = MessagePackSerializer.Get<Response>();
-                resp = ser.Unpack(mem);
-            }
-
-            resp.EnsureSuccessStatusCode();
-
-            string respMessage = resp.Result.ToString();
-            Console.WriteLine($"Ответ сервера: \"{respMessage}\"");
         }
     }
 }

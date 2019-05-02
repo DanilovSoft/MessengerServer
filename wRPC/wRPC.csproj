@@ -13,11 +13,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\Contract\Contract.csproj" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <Folder Include="Exceptions\" />
+    <ProjectReference Include="..\DynamicMethodsLib\DynamicMethodsLib.csproj" />
   </ItemGroup>
 
 </Project>
