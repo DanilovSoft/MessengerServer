@@ -1,5 +1,6 @@
 ﻿using MessengerServer.Controllers;
 using System;
+using System.Collections.Generic;
 using System.Threading;
 using wRPC;
 
@@ -20,7 +21,7 @@ namespace MessengerServer
                     Warmup.DoWarmup();
                     using (var listener = new Listener(Port))
                     {
-                        listener.IOC.Bind<ISqlContext>().To<SqlContext>();
+                        ///listener.IOC.Bind<ISqlContext>().To<SqlContext>();
 
                         listener.StartAccept();
 
@@ -29,17 +30,5 @@ namespace MessengerServer
                 }
             }
         }
-    }
-
-    public class SqlContext : IDisposable, ISqlContext
-    {
-        public void Dispose()
-        {
-            
-        }
-    }
-
-    public interface ISqlContext
-    {
     }
 }

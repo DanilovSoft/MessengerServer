@@ -11,12 +11,12 @@ namespace MessengerServer.Controllers
 {
     public class HomeController : Controller, IHomeController
     {
-        public HomeController(ISqlContext sql)
+        public HomeController()
         {
            
         }
 
-        public Task<string> SendMessage(string message, int userId)
+        public Task SendMessage(string message, int userId)
         {
             Console.WriteLine($"Получено сообщение: \"{message}\"");
 
@@ -41,16 +41,6 @@ namespace MessengerServer.Controllers
                     }, null);
                 }
             }
-            return Task.FromResult(message);
-        }
-
-        public void SyncTest()
-        {
-            
-        }
-
-        public Task SyncTestAsync()
-        {
             return Task.CompletedTask;
         }
     }

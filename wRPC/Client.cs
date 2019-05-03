@@ -5,6 +5,7 @@ using MsgPack.Serialization;
 using System;
 using System.Buffers;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Net;
@@ -19,7 +20,11 @@ namespace wRPC
 {
     public sealed class Client : IDisposable
     {
-        private readonly MyClientWebSocket _cli;
+        private readonly MyClientWebSocket _ws;
+        private readonly RequestQueue _requestQueue;
+        private readonly AsyncLock _asyncLock;
+        private readonly Uri _uri;
+        private volatile bool _connected;
         private bool _disposed;
 
         static Client()
@@ -29,9 +34,15 @@ namespace wRPC
         }
 
         // ctor.
-        public Client()
+        public Client(string host, int port) : this(new Uri($"ws://{host}:{port}")) { }
+
+        // ctor.
+        public Client(Uri uri)
         {
-            _cli = new MyClientWebSocket();
+            _uri = uri;
+            _ws = new MyClientWebSocket();
+            _requestQueue = new RequestQueue();
+            _asyncLock = new AsyncLock();
         }
 
         public T GetProxy<T>(string controllerName)
@@ -85,26 +96,114 @@ namespace wRPC
 
         private async Task<object> GetResponseAsync(Request request)
         {
-            Response resp;
+            // Добавить в очередь запросов.
+            TaskCompletionSource tcs = _requestQueue.CreateRequest();
+            request.Uid = tcs.Uid;
+
+            // Арендуем память.
+            using (var rentMem = MemoryPool<byte>.Shared.Rent(4096))
+            {
+                // Замена MemoryStream.
+                using (var stream = new SpanStream(rentMem.Memory))
+                {
+                    // Сериализуем запрос в память.
+                    MessagePackSerializer.Get<Request>().Pack(stream, request);
+
+                    // Выполнить подключение сокета если еще не подключен.
+                    await ConnectIfNeededAsync().ConfigureAwait(false);
+
+                    // Отправка запроса.
+                    await _ws.SendAsync(rentMem.Memory.Slice(0, (int)stream.Position), WebSocketMessageType.Binary, true, CancellationToken.None).ConfigureAwait(false);
+                }
+            }
+
+            // Ожидаем результат от потока поторый читает из сокета.
+            Response response = await tcs;
+
+            response.EnsureSuccessStatusCode();
+
+            object rawResult = response.Result.ToObject();
+            return rawResult;
+        }
+
+        /// <summary>
+        /// Выполнить подключение сокета если еще не подключен.
+        /// </summary>
+        /// <returns></returns>
+        private async ValueTask ConnectIfNeededAsync()
+        {
+            // Fast-path.
+            if(_connected)
+            {
+                return;
+            }
+            else
+            {
+                using (await _asyncLock.LockAsync().ConfigureAwait(false))
+                {
+                    if(!_connected)
+                    {
+                        // Копия ссылки.
+                        MyClientWebSocket ws = _ws;
+
+                        await ws.ConnectAsync(_uri).ConfigureAwait(false);
+                        _connected = true;
+                        ThreadPool.UnsafeQueueUserWorkItem(ReceivingLoop, ws);
+                    }
+                }
+            }
+        }
+
+        private async void ReceivingLoop(object state)
+        {
+            var ws = (MyClientWebSocket)state;
             using (var rentMem = MemoryPool<byte>.Shared.Rent(4096))
             {
                 using (var stream = new SpanStream(rentMem.Memory))
                 {
-                    MessagePackSerializer.Get<Request>().Pack(stream, request);
+                    while (ws.State == WebSocketState.Open)
+                    {
+                        ValueWebSocketReceiveResult message;
+                        try
+                        {
+                            message = await ws.ReceiveAsync(rentMem.Memory, CancellationToken.None);
+                        }
+                        catch (Exception ex)
+                        // Разрыв соединения.
+                        {
+                            Debug.WriteLine(ex);
 
-                    await _cli.SendAsync(rentMem.Memory.Slice(0, (int)stream.Position), WebSocketMessageType.Binary, true, CancellationToken.None).ConfigureAwait(false);
+                            // Завершить текущий поток.
+                            return;
+                        }
 
-                    ValueWebSocketReceiveResult message = await _cli.ReceiveAsync(rentMem.Memory, CancellationToken.None).ConfigureAwait(false);
-                    
-                    stream.Position = 0;
-                    resp = MessagePackSerializer.Get<Response>().Unpack(stream);
+                        stream.Position = 0;
+
+                        #region Десериализация.
+
+                        Response response;
+                        try
+                        {
+                            response = MessagePackSerializer.Get<Response>().Unpack(stream);
+                        }
+                        catch (Exception ex)
+                        // Не должно быть ошибок десериализации.
+                        {
+                            Debug.WriteLine(ex);
+                            try
+                            {
+                                await ws.CloseAsync(WebSocketCloseStatus.ProtocolError, "Invalid Request Format Error", CancellationToken.None);
+                            }
+                            catch { }
+                            return;
+                        }
+                        #endregion
+
+                        // Передать ответ в очередь запросов.
+                        _requestQueue.OnResponse(response);
+                    }
                 }
             }
-
-            resp.EnsureSuccessStatusCode();
-
-            object result = resp.Result.ToObject();
-            return result;
         }
 
         private Request.Arg[] CreateArgs(MethodInfo targetMethod, object[] args)
@@ -120,23 +219,9 @@ namespace wRPC
             return retArgs;
         }
 
-        public Task ConnectAsync(string host, int port)
+        public ValueTask ConnectAsync()
         {
-            var wsAddress = new Uri($"ws://{host}:{port}");
-            return _cli.ConnectAsync(wsAddress);
-        }
-
-        public Task ConnectAsync(EndPoint endPoint)
-        {
-            if (endPoint is IPEndPoint iPEndPoint)
-            {
-                return ConnectAsync(iPEndPoint.Address.ToString(), iPEndPoint.Port);
-            }
-            else
-            {
-                var ep = (DnsEndPoint)endPoint;
-                return ConnectAsync(ep.Host, ep.Port);
-            }
+            return ConnectIfNeededAsync();
         }
 
         public void Dispose()
@@ -144,7 +229,8 @@ namespace wRPC
             if(!_disposed)
             {
                 _disposed = true;
-                _cli.Dispose();
+                _ws.Dispose();
+                _asyncLock.Dispose();
             }
         }
     }

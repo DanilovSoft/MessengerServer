@@ -7,6 +7,6 @@ namespace wRPC.Contract
 {
     public interface IHomeController
     {
-        Task<string> SendMessage(string message, int userId);
+        Task SendMessage(string message, int userId);
     }
 }

@@ -21,7 +21,6 @@ namespace StubClient
         static async Task Main()
         {
             Console.Title = "Клиент";
-
             #region Debug: Ждем запуск сервера
 
             Mutex mutex = null;
@@ -29,21 +28,18 @@ namespace StubClient
             mutex.Dispose();
             #endregion
 
-            Warmup.DoWarmup();
-            using (var client = new Client())
+            using (var client = new Client("127.0.0.1", 1234))
             {
                 var authController = client.GetProxy<IAuthController>("Auth");
                 var homeController = client.GetProxy<IHomeController>("Home");
 
                 Console.WriteLine("Авторизация...");
-                await client.ConnectAsync("127.0.0.1", 1234);
-                bool success = await authController.Authorize(login: "}{0ТТ@БЬ)Ч", password: "P@ssw0rd");
+                bool success = await authController.Authorize(login: "User1", password: "Passw0rd");
                 while (true)
                 {
                     Console.Write("Введите сообщение: ");
                     string line = Console.ReadLine();
-                    string reply = await homeController.SendMessage(message: line, userId: 123456);
-                    Console.WriteLine($"Ответ сервера: \"{reply}\"");
+                    await homeController.SendMessage(message: line, userId: 123456);
                 }
             }
         }

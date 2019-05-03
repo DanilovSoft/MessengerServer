@@ -11,7 +11,7 @@ namespace MessengerServer.Controllers
 {
     internal class AuthController : Controller, IAuthController
     {
-        public AuthController(ISqlContext sqlContext)
+        public AuthController()
         {
             
         }
