@@ -53,9 +53,12 @@ namespace wRPC
 
             lock (_dict)
             {
-                // Обязательно удалить из словаря,
-                // что-бы дубль результата не мог сломать рабочий процесс.
-                removed = _dict.Remove(response.Uid, out tcs);
+                if (removed = _dict.TryGetValue(response.Uid, out tcs))
+                {
+                    // Обязательно удалить из словаря,
+                    // что-бы дубль результата не мог сломать рабочий процесс.
+                    _dict.Remove(response.Uid);
+                }
             }
 
             if(removed)

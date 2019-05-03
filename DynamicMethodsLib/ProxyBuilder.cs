@@ -218,28 +218,22 @@ namespace DynamicMethodsLib
                 }
             }
 
-#if NET471 && DECOMPILE
-
-            classType.CreateType();
-            assemblyBuilder.Save(assemblyName + ".dll");
-            Decompiler.DecompileToConsoleAsync(assemblyName + ".dll", className).GetAwaiter().GetResult();
-#endif
-
-            Type dynamicType = classType.CreateType();
+            var ti = classType.CreateTypeInfo();
+            //Type dynamicType = classType.CreateType();
 
             TIface proxy;
             if (instance != default)
             {
-                proxy = (TIface)Activator.CreateInstance(dynamicType, args: instance);
+                proxy = (TIface)Activator.CreateInstance(ti, args: instance);
             }
             else
             {
-                proxy = (TIface)Activator.CreateInstance(dynamicType);
+                proxy = (TIface)Activator.CreateInstance(ti);
             }
 
             foreach ((string fieldName, MethodInfo MethodInfo) item in fields)
             {
-                FieldInfo field = dynamicType.GetField(item.fieldName, BindingFlags.NonPublic | BindingFlags.Instance);
+                FieldInfo field = ti.GetField(item.fieldName, BindingFlags.NonPublic | BindingFlags.Instance);
                 field.SetValue(proxy, item.MethodInfo);
             }
 

@@ -45,6 +45,15 @@ namespace wRPC
             _asyncLock = new AsyncLock();
         }
 
+        public T GetProxy<T>()
+        {
+            var attrib =  typeof(T).GetCustomAttribute<ControllerContractAttribute>(inherit: false);
+            if (attrib == null)
+                throw new ArgumentNullException("controllerName", $"Укажите имя контроллера или пометьте интерфейс атрибутом \"{nameof(ControllerContractAttribute)}\"");
+
+            return GetProxy<T>(attrib.ControllerName);
+        }
+
         public T GetProxy<T>(string controllerName)
         {
             T proxy = TypeProxy.Create<T, InterfaceProxy>((this, controllerName));
@@ -101,10 +110,10 @@ namespace wRPC
             request.Uid = tcs.Uid;
 
             // Арендуем память.
-            using (var rentMem = MemoryPool<byte>.Shared.Rent(4096))
+            using (var rentMem = new ArrayPool(4096))
             {
                 // Замена MemoryStream.
-                using (var stream = new SpanStream(rentMem.Memory))
+                using (var stream = new MemoryStream(rentMem.Buffer))
                 {
                     // Сериализуем запрос в память.
                     MessagePackSerializer.Get<Request>().Pack(stream, request);
@@ -112,8 +121,9 @@ namespace wRPC
                     // Выполнить подключение сокета если еще не подключен.
                     await ConnectIfNeededAsync().ConfigureAwait(false);
 
+                    var segment = new ArraySegment<byte>(rentMem.Buffer, 0, (int)stream.Position);
                     // Отправка запроса.
-                    await _ws.SendAsync(rentMem.Memory.Slice(0, (int)stream.Position), WebSocketMessageType.Binary, true, CancellationToken.None).ConfigureAwait(false);
+                    await _ws.SendAsync(segment, WebSocketMessageType.Binary, true, CancellationToken.None).ConfigureAwait(false);
                 }
             }
 
@@ -130,7 +140,7 @@ namespace wRPC
         /// Выполнить подключение сокета если еще не подключен.
         /// </summary>
         /// <returns></returns>
-        private async ValueTask ConnectIfNeededAsync()
+        private async Task ConnectIfNeededAsync()
         {
             // Fast-path.
             if(_connected)
@@ -157,16 +167,17 @@ namespace wRPC
         private async void ReceivingLoop(object state)
         {
             var ws = (MyClientWebSocket)state;
-            using (var rentMem = MemoryPool<byte>.Shared.Rent(4096))
+            using (var rentMem = new ArrayPool(4096))
             {
-                using (var stream = new SpanStream(rentMem.Memory))
+                using (var stream = new MemoryStream(rentMem.Buffer))
                 {
                     while (ws.State == WebSocketState.Open)
                     {
-                        ValueWebSocketReceiveResult message;
+                        //stream.TryGetBuffer(out var segment);
+                        WebSocketReceiveResult message;
                         try
                         {
-                            message = await ws.ReceiveAsync(rentMem.Memory, CancellationToken.None);
+                            message = await ws.ReceiveAsync(new ArraySegment<byte>(rentMem.Buffer), CancellationToken.None);
                         }
                         catch (Exception ex)
                         // Разрыв соединения.
@@ -219,7 +230,7 @@ namespace wRPC
             return retArgs;
         }
 
-        public ValueTask ConnectAsync()
+        public Task ConnectAsync()
         {
             return ConnectIfNeededAsync();
         }

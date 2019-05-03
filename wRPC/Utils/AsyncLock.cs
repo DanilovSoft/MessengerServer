@@ -18,7 +18,7 @@ namespace wRPC
             _releaser = new Releaser(_sem);
         }
 
-        public async ValueTask<Releaser> LockAsync()
+        public async Task<Releaser> LockAsync()
         {
             await _sem.WaitAsync().ConfigureAwait(false);
             return _releaser;

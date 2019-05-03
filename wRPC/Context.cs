@@ -185,7 +185,7 @@ namespace wRPC
                     object[] args = GetParameters(method, request);
 
                     // Вызов делегата.
-                    object result = method.Invoke(controller, args);
+                    object result = method.InvokeFast(controller, args);
 
                     if (result != null)
                     {
@@ -281,14 +281,14 @@ namespace wRPC
                 Response errorResponse = null;
 
                 // Арендуем память.
-                using (IMemoryOwner<byte> buffer = MemoryPool<byte>.Shared.Rent(4096))
+                using (var buffer = new ArrayPool(4096))
                 {
                     #region Читаем запрос из сокета
 
-                    ValueWebSocketReceiveResult message;
+                    WebSocketReceiveResult message;
                     try
                     {
-                        message = await WebSocket.ReceiveAsync(buffer.Memory, CancellationToken.None);
+                        message = await WebSocket.ReceiveAsync(new ArraySegment<byte>(buffer.Buffer), CancellationToken.None);
                     }
                     catch (Exception ex)
                     // Обрыв соединения.
@@ -300,7 +300,7 @@ namespace wRPC
 
                     #region Десериализуем запрос
 
-                    using (var mem = new SpanStream(buffer.Memory.Slice(0, message.Count)))
+                    using (var mem = new MemoryStream(buffer.Buffer, 0, message.Count))
                     {
                         try
                         {
@@ -411,7 +411,7 @@ namespace wRPC
         private async Task SendResponseAsync(Response response)
         {
             byte[] buffer = response.Serialize();
-            await WebSocket.SendAsync(buffer, WebSocketMessageType.Binary, endOfMessage: true, CancellationToken.None);
+            await WebSocket.SendAsync(new ArraySegment<byte>(buffer), WebSocketMessageType.Binary, endOfMessage: true, CancellationToken.None);
         }
     }
 }
