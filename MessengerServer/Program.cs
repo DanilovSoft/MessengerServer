@@ -17,8 +17,6 @@ namespace MessengerServer
             {
                 if (createdNew)
                 {
-                    // Прогрев.
-                    Warmup.DoWarmup();
                     using (var listener = new Listener(Port))
                     {
                         ///listener.IOC.Bind<ISqlContext>().To<SqlContext>();

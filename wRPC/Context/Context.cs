@@ -25,28 +25,9 @@ namespace wRPC
     /// <summary>
     /// Контекст соединения Web-Сокета. Владеет соединением.
     /// </summary>
-    [DebuggerDisplay("{DebugDisplay,nq}")]
-    public class Context : IDisposable
+    public abstract class Context : IDisposable
     {
-        #region Debug
-        [DebuggerBrowsable(DebuggerBrowsableState.Never)]
-        private string DebugDisplay => "{" + $"{{{nameof(Context)}}}, UserId = {UserId}" + "}";
-        #endregion
-
         public StandardKernel IoC { get; }
-        /// <summary>
-        /// Сервер который принял текущее соединение.
-        /// </summary>
-        private readonly Listener _listener;
-        /// <summary>
-        /// Потокобезопасный словарь используемый только для чтения.
-        /// Хранит все доступные контроллеры. Не учитывает регистр.
-        /// </summary>
-        protected readonly Dictionary<string, Type> Controllers;
-        /// <summary>
-        /// Объект синхронизации текущего экземпляра.
-        /// </summary>
-        private readonly object _syncObj = new object();
         /// <summary>
         /// Объект синхронизации для переиспользования прокси интерфейсов.
         /// </summary>
@@ -54,19 +35,15 @@ namespace wRPC
         private readonly Dictionary<Type, object> _proxies = new Dictionary<Type, object>();
         internal readonly RequestQueue _requestQueue = new RequestQueue();
         private readonly bool _isClientConnection;
+        /// <summary>
+        /// Потокобезопасный словарь используемый только для чтения.
+        /// Хранит все доступные контроллеры. Не учитывает регистр.
+        /// </summary>
+        protected Dictionary<string, Type> Controllers;
         internal MyWebSocket WebSocket { get; }
-        public bool IsAuthorized { get; private set; }
-        public int? UserId { get; private set; }
-        /// <summary>
-        /// Смежные соединения текущего пользователя.
-        /// </summary>
-        private UserConnections _connections;
         private bool _disposed;
-        protected volatile bool _connected;
 
-        /// <summary>
-        /// Конструктор клиента.
-        /// </summary>
+        // ctor.
         /// <param name="callingAssembly">Сборка в которой будет осеществляться поиск контроллеров.</param>
         internal Context(Assembly callingAssembly)
         {
@@ -82,25 +59,17 @@ namespace wRPC
                 IoC.Bind(controllerType).ToSelf();
 
             WebSocket = new MyClientWebSocket();
-
-            // Разрешает серверу доступ к контроллерам клиента.
-            IsAuthorized = true;
         }
 
         /// <summary>
         /// Конструктор сервера.
         /// </summary>
-        internal Context(MyWebSocket clientConnection, StandardKernel ioc, Listener listener)
+        internal Context(MyWebSocket clientConnection, StandardKernel ioc)
         {
             _isClientConnection = false;
-            _listener = listener;
             IoC = ioc;
 
-            // Копируем список контроллеров сервера.
-            Controllers = listener.Controllers;
-
             WebSocket = clientConnection;
-            _connected = true;
 
             // Начать обработку запросов текущего пользователя.
             StartReceivingLoop(WebSocket);
@@ -223,84 +192,7 @@ namespace wRPC
         }
 
         /// <summary>
-        /// Производит авторизацию текущего подключения.
-        /// </summary>
-        /// <param name="userId"></param>
-        /// <exception cref="RemoteException"/>
-        public void Authorize(int userId)
-        {
-            // Функцию могут вызвать из нескольких потоков.
-            lock (_syncObj)
-            {
-                if (!IsAuthorized)
-                {
-                    // Авторизуем контекст пользователя.
-                    UserId = userId;
-                    IsAuthorized = true;
-
-                    // Добавляем соединение в словарь.
-                    _connections = AddConnection(userId);
-
-                    // Подпишемся на дисконнект.
-                    // Событие сработает даже если соединение уже разорвано.
-                    WebSocket.Disconnected += WebSocket_Disconnected;
-                }
-                else
-                    throw new RemoteException($"You are already authorized as 'UserId: {UserId}'", ErrorCode.BadRequest);
-            }
-        }
-
-        /// <summary>
-        /// Потокобезопасно добавляет текущее соединение в словарь.
-        /// </summary>
-        private UserConnections AddConnection(int userId)
-        {
-            do
-            {
-                // Берем существующую структуру или создаем новую.
-                UserConnections userConnections = _listener.Connections.GetOrAdd(userId, uid => new UserConnections(uid));
-
-                // Может случиться так что мы взяли существующую коллекцию но её удаляют из словаря в текущий момент.
-                lock (userConnections.SyncRoot) // Захватить эксклюзивный доступ.
-                {
-                    // Если коллекцию еще не удалили из словаря то можем безопасно добавить в неё соединение.
-                    if (!userConnections.IsDestroyed)
-                    {
-                        userConnections.Add(this);
-                        return userConnections;
-                    }
-                }
-            } while (true);
-        }
-
-        private void WebSocket_Disconnected(object sender, EventArgs e)
-        {
-            // Копия на случай null.
-            UserConnections cons = _connections;
-
-            if(cons != null)
-            {
-                // Захватить эксклюзивный доступ.
-                lock (cons.SyncRoot)
-                {
-                    // Текущее соединение нужно безусловно удалить.
-                    if (cons.Remove(this))
-                    {
-                        // Если соединений больше не осталось то удалить себя из словаря.
-                        if (!cons.IsDestroyed && cons.Count == 0)
-                        {
-                            // Использовать текущую структуру больше нельзя.
-                            cons.IsDestroyed = true;
-
-                            _listener.Connections.TryRemove(UserId.Value, out _);
-                        }
-                    }
-                }
-            }
-        }
-
-        /// <summary>
-        /// Вызывает запрошенный клиентом метод и возвращает результат.
+        /// Вызывает запрошенный метод и возвращает результат.
         /// </summary>
         /// <exception cref="RemoteException"/>
         private async Task<object> InvokeActionAsync(Message request)
@@ -316,7 +208,7 @@ namespace wRPC
                 throw new RemoteException($"Unable to find requested action \"{request.ActionName}\"", ErrorCode.ActionNotFound);
 
             // Проверить доступ к функции.
-            PermissionCheck(method, controllerType);
+            InvokeMethodPermissionCheck(method, controllerType);
 
             // Блок IoC выполнит Dispose всем созданным экземплярам.
             using (IActivationBlock iocBlock = IoC.BeginBlock())
@@ -325,8 +217,7 @@ namespace wRPC
                 using (var controller = (Controller)iocBlock.Get(controllerType))
                 {
                     // Подготавливаем контроллер.
-                    controller.Context = this;
-                    controller.Listener = _listener;
+                    BeforeInvokePrepareController(controller);
 
                     // Мапим аргументы по их именам.
                     object[] args = GetParameters(method, request);
@@ -347,25 +238,11 @@ namespace wRPC
         }
 
         /// <summary>
-        /// Проверяет доступность запрашиваемого метода пользователем.
+        /// Проверяет доступность запрашиваемого метода для удаленного пользователя.
         /// </summary>
         /// <exception cref="RemoteException"/>
-        private void PermissionCheck(MethodInfo method, Type controllerType)
-        {
-            // Проверить доступен ли метод пользователю.
-            if (IsAuthorized)
-                return;
-
-            // Разрешить если метод помечен как разрешенный для не авторизованных пользователей.
-            if (Attribute.IsDefined(method, typeof(AllowAnonymousAttribute)))
-                return;
-
-            // Разрешить если контроллер помечен как разрешенный для не акторизованных пользователей.
-            if (Attribute.IsDefined(controllerType, typeof(AllowAnonymousAttribute)))
-                return;
-
-            throw new RemoteException("The request requires user authentication", ErrorCode.Unauthorized);
-        }
+        protected abstract void InvokeMethodPermissionCheck(MethodInfo method, Type controllerType);
+        protected abstract void BeforeInvokePrepareController(Controller controller);
 
         /// <summary>
         /// Пытается найти запрашиваемый пользователем контроллер.
@@ -485,7 +362,10 @@ namespace wRPC
                 }
                 else
                 {
-                    _requestQueue.OnResponse(message);
+                    if (errorResponse == null)
+                    {
+                        _requestQueue.OnResponse(message);
+                    }
                 }
             }
         }

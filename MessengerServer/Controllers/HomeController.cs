@@ -9,7 +9,7 @@ using wRPC.Contract;
 
 namespace MessengerServer.Controllers
 {
-    public class HomeController : Controller, IHomeController
+    public class HomeController : ServerController, IHomeController
     {
         public HomeController()
         {
@@ -23,7 +23,7 @@ namespace MessengerServer.Controllers
             // TODO: записать в БД.
 
             // Находим подключение пользователя по его UserId.
-            if (Connections.TryGetValue(userId, out UserConnections connections))
+            if (Context.Listener.Connections.TryGetValue(userId, out UserConnections connections))
             {
                 // Отправить сообщение через все соединения пользователя.
                 foreach (Context context in connections)

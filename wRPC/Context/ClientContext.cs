@@ -13,10 +13,16 @@ using MyClientWebSocket = DanilovSoft.WebSocket.ClientWebSocket;
 
 namespace wRPC
 {
+    [DebuggerDisplay("{DebugDisplay,nq}")]
     public class ClientContext : Context
     {
+        #region Debug
+        [DebuggerBrowsable(DebuggerBrowsableState.Never)]
+        private string DebugDisplay => "{" + $"{{{GetType().Name}}}, Connected = {_connected}" + "}";
+        #endregion
         private readonly AsyncLock _asyncLock;
         private readonly Uri _uri;
+        private volatile bool _connected;
 
         public ClientContext(Assembly callingAssembly, Uri uri) : base(callingAssembly)
         {
@@ -118,6 +124,15 @@ namespace wRPC
         //        }
         //    }
         //}
+
+        protected override void BeforeInvokePrepareController(Controller controller)
+        {
+            var clientController = (ClientController)controller;
+            clientController.Context = this;
+        }
+
+        // Серверу всегда доступны методы клиента.
+        protected override void InvokeMethodPermissionCheck(MethodInfo method, Type controllerType) { }
 
         public override void Dispose()
         {

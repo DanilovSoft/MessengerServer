@@ -7,11 +7,11 @@ using wRPC.Contract;
 
 namespace StubClient.Controllers
 {
-    internal class HomeController : Controller, IClientController
+    internal class HomeController : ClientController, IClientController
     {
         public HomeController()
         {
-
+            
         }
 
         public Task OnMessage(string message, int fromUserId)

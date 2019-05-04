@@ -9,7 +9,7 @@ using wRPC.Contract;
 
 namespace MessengerServer.Controllers
 {
-    internal class AuthController : Controller, IAuthController
+    internal class AuthController : ServerController, IAuthController
     {
         public AuthController()
         {

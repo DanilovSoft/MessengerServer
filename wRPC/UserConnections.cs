@@ -13,7 +13,7 @@ namespace wRPC
     /// </summary>
     [DebuggerDisplay("{DebugDisplay,nq}")]
     [DebuggerTypeProxy(typeof(TypeProxy))]
-    public class UserConnections : IList<Context>
+    public class UserConnections : IList<ServerContext>
     {
         [DebuggerBrowsable(DebuggerBrowsableState.Never)]
         private string DebugDisplay => "{" + $"Count = {_list.Count}" + "}";
@@ -22,7 +22,7 @@ namespace wRPC
         /// <summary>
         /// Доступ осуществляется только через блокировку <see cref="SyncRoot"/>.
         /// </summary>
-        private readonly List<Context> _list = new List<Context>();
+        private readonly List<ServerContext> _list = new List<ServerContext>();
         public readonly int UserId;
 
         /// <summary>
@@ -37,7 +37,7 @@ namespace wRPC
             UserId = userId;
         }
 
-        public Context this[int index]
+        public ServerContext this[int index]
         {
             get
             {
@@ -68,7 +68,7 @@ namespace wRPC
 
         public bool IsReadOnly => false;
 
-        public void Add(Context context)
+        public void Add(ServerContext context)
         {
             lock(SyncRoot)
             {
@@ -84,7 +84,7 @@ namespace wRPC
             }
         }
 
-        public bool Contains(Context context)
+        public bool Contains(ServerContext context)
         {
             lock(SyncRoot)
             {
@@ -92,7 +92,7 @@ namespace wRPC
             }
         }
 
-        public void CopyTo(Context[] array, int arrayIndex)
+        public void CopyTo(ServerContext[] array, int arrayIndex)
         {
             lock(SyncRoot)
             {
@@ -100,7 +100,7 @@ namespace wRPC
             }
         }
 
-        public int IndexOf(Context context)
+        public int IndexOf(ServerContext context)
         {
             lock(SyncRoot)
             {
@@ -108,7 +108,7 @@ namespace wRPC
             }
         }
 
-        public void Insert(int index, Context context)
+        public void Insert(int index, ServerContext context)
         {
             lock(SyncRoot)
             {
@@ -116,7 +116,7 @@ namespace wRPC
             }
         }
 
-        public bool Remove(Context context)
+        public bool Remove(ServerContext context)
         {
             lock(SyncRoot)
             {
@@ -135,7 +135,7 @@ namespace wRPC
         /// <summary>
         /// Возвращает копию своей коллекции.
         /// </summary>
-        public IEnumerator<Context> GetEnumerator()
+        public IEnumerator<ServerContext> GetEnumerator()
         {
             lock(SyncRoot)
             {
@@ -159,7 +159,7 @@ namespace wRPC
             }
 
             [DebuggerBrowsable(DebuggerBrowsableState.RootHidden)]
-            public Context[] Items => _self._list.ToArray();
+            public ServerContext[] Items => _self._list.ToArray();
         }
         #endregion
     }

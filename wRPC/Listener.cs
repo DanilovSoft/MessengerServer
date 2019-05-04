@@ -25,10 +25,8 @@ namespace wRPC
         /// </summary>
         internal readonly Dictionary<string, Type> Controllers;
         private readonly WebSocketServer _wsServ;
-        /// <summary>
-        /// Ключ словаря должен быть сериализуемым идентификатором.
-        /// </summary>
-        internal readonly ConcurrentDictionary<int, UserConnections> Connections = new ConcurrentDictionary<int, UserConnections>();
+        // Ключ словаря должен быть сериализуемым идентификатором.
+        public ConcurrentDictionary<int, UserConnections> Connections { get; } = new ConcurrentDictionary<int, UserConnections>();
         ///// <summary>
         ///// Хранит не авторизованные подключения.
         ///// </summary>
@@ -65,14 +63,9 @@ namespace wRPC
         private void Listener_OnConnected(object sender, MyWebSocket clientConnection)
         {
             // Создать контекст для текущего подключения.
-            var context = new Context(clientConnection, IoC, this);
+            var context = new ServerContext(clientConnection, IoC, this);
 
             //_contextList.Add(context);
-        }
-
-        internal void Authorize()
-        {
-
         }
 
         public void Dispose()
