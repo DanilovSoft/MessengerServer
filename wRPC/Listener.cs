@@ -23,53 +23,33 @@ namespace wRPC
         /// Потокобезопасный словарь используемый только для чтения.
         /// Хранит все доступные контроллеры. Не учитывает регистр.
         /// </summary>
-        internal readonly Dictionary<string, Type> _controllers;
+        internal readonly Dictionary<string, Type> Controllers;
         private readonly WebSocketServer _wsServ;
         /// <summary>
         /// Ключ словаря должен быть сериализуемым идентификатором.
         /// </summary>
         internal readonly ConcurrentDictionary<int, UserConnections> Connections = new ConcurrentDictionary<int, UserConnections>();
+        ///// <summary>
+        ///// Хранит не авторизованные подключения.
+        ///// </summary>
+        //private readonly SafeList<Context> _contextList = new SafeList<Context>();
         private bool _disposed;
-        public StandardKernel IOC { get; }
+        public StandardKernel IoC { get; }
         private int _startAccept;
-
-        static Listener()
-        {
-            MessagePackSerializer.PrepareType<Request>();
-            MessagePackSerializer.PrepareType<Response>();
-        }
 
         // ctor.
         public Listener(int port)
         {
-            IOC = new StandardKernel();
+            IoC = new StandardKernel();
             _wsServ = new WebSocketServer();
             _wsServ.Bind(new IPEndPoint(IPAddress.Any, port));
-            _wsServ.Connected += WebSocket_OnConnected;
+            _wsServ.Connected += Listener_OnConnected;
 
             // Контроллеры будем искать в сборке которая вызвала текущую функцию.
             var controllersAssembly = Assembly.GetCallingAssembly();
-
-            _controllers = FindAllControllers(controllersAssembly);
-            foreach (Type controllerType in _controllers.Values)
-            {
-                IOC.Bind(controllerType).ToSelf();
-            }
-        }
-
-        private static Dictionary<string, Type> FindAllControllers(Assembly assembly)
-        {
-            var controllers = new Dictionary<string, Type>(StringComparer.InvariantCultureIgnoreCase);
-            Type[] types = assembly.GetTypes();
-
-            foreach (Type controllerType in types)
-            {
-                if (controllerType.IsSubclassOf(typeof(Controller)))
-                {
-                    controllers.Add(controllerType.Name, controllerType);
-                }
-            }
-            return controllers;
+            Controllers = GlobalVars.FindAllControllers(controllersAssembly);
+            foreach (Type controllerType in Controllers.Values)
+                IoC.Bind(controllerType).ToSelf();
         }
 
         public void StartAccept()
@@ -82,13 +62,17 @@ namespace wRPC
                 throw new InvalidOperationException("Already started");
         }
 
-        private void WebSocket_OnConnected(object sender, MyWebSocket e)
+        private void Listener_OnConnected(object sender, MyWebSocket clientConnection)
         {
             // Создать контекст для текущего подключения.
-            var context = new Context(e, IOC, this);
+            var context = new Context(clientConnection, IoC, this);
 
-            // Начать обработку запросов текущего пользователя.
-            context.StartReceive();
+            //_contextList.Add(context);
+        }
+
+        internal void Authorize()
+        {
+
         }
 
         public void Dispose()
@@ -96,9 +80,9 @@ namespace wRPC
             if (!_disposed)
             {
                 _disposed = true;
-                _wsServ.Connected -= WebSocket_OnConnected;
+                _wsServ.Connected -= Listener_OnConnected;
                 _wsServ.Dispose();
-                IOC.Dispose();
+                IoC.Dispose();
             }
         }
     }

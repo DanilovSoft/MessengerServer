@@ -1,13 +1,18 @@
 ﻿using Contract;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Text;
 
 namespace wRPC
 {
+    [DebuggerDisplay("{DebugDisplay,nq}")]
     internal sealed class RequestQueue
     {
+        [DebuggerBrowsable(DebuggerBrowsableState.Never)]
+        private string DebugDisplay => "{" + $"Count = {_dict.Count}" + "}";
         private readonly Random _rnd;
+        [DebuggerBrowsable(DebuggerBrowsableState.RootHidden)]
         private readonly Dictionary<int, TaskCompletionSource> _dict = new Dictionary<int, TaskCompletionSource>();
 
         public RequestQueue()
@@ -27,7 +32,7 @@ namespace wRPC
                     int uid = _rnd.Next();
                     if (!_dict.ContainsKey(uid))
                     {
-                        var tcs = new TaskCompletionSource(uid, this);
+                        var tcs = new TaskCompletionSource(uid);
                         _dict.Add(uid, tcs);
                         return tcs;
                     }
@@ -46,24 +51,24 @@ namespace wRPC
         /// <summary>
         /// Потокобезопасно связывает результат запроса с самим запросом.
         /// </summary>
-        internal void OnResponse(Response response)
+        internal void OnResponse(Message message)
         {
             bool removed;
             TaskCompletionSource tcs;
 
             lock (_dict)
             {
-                if (removed = _dict.TryGetValue(response.Uid, out tcs))
+                if (removed = _dict.TryGetValue(message.Uid, out tcs))
                 {
                     // Обязательно удалить из словаря,
                     // что-бы дубль результата не мог сломать рабочий процесс.
-                    _dict.Remove(response.Uid);
+                    _dict.Remove(message.Uid);
                 }
             }
 
             if(removed)
             {
-                tcs.OnResponse(response);
+                tcs.OnResponse(message);
             }
         }
     }

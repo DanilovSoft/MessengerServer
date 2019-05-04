@@ -10,38 +10,33 @@ namespace wRPC
 {
     internal static class ExtensionMethods
     {
-        public static Response ErrorResponse(this Request request, RemoteException exception)
+        public static Message ErrorResponse(this Message request, RemoteException exception)
         {
-            return new Response(request.Uid, MessagePackObject.Nil, exception.Message, exception.ErrorCode);
+            return new Message(request.Uid, MessagePackObject.Nil, exception.Message, exception.ErrorCode);
         }
 
-        public static Response ErrorResponse(this Request request, string errorMessage, ErrorCode errorCode)
+        public static Message ErrorResponse(this Message request, string errorMessage, ErrorCode errorCode)
         {
-            return new Response(request.Uid, MessagePackObject.Nil, errorMessage, errorCode);
+            return new Message(request.Uid, MessagePackObject.Nil, errorMessage, errorCode);
         }
 
-        public static byte[] Serialize(this Request request)
+        public static ArrayPool Serialize(this Message request, out int size)
         {
-            byte[] buffer;
-            using (var mem = new MemoryStream())
+            var ar = new ArrayPool(4096);
+            using (var mem = new MemoryStream(ar.Buffer))
             {
-                var ser = MessagePackSerializer.Get<Request>();
-                ser.Pack(mem, request);
-                buffer = mem.ToArray();
+                try
+                {
+                    GlobalVars.MessageSerializer.Pack(mem, request);
+                }
+                catch
+                {
+                    ar.Dispose();
+                    throw;
+                }
+                size = (int)mem.Position;
             }
-            return buffer;
-        }
-
-        public static byte[] Serialize(this Response request)
-        {
-            byte[] buffer;
-            using (var mem = new MemoryStream())
-            {
-                var ser = MessagePackSerializer.Get<Response>();
-                ser.Pack(mem, request);
-                buffer = mem.ToArray();
-            }
-            return buffer;
+            return ar;
         }
     }
 }

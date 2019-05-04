@@ -30,9 +30,10 @@ namespace MessengerServer.Controllers
                 {
                     ThreadPool.UnsafeQueueUserWorkItem(async delegate
                     {
+                        var client = context.GetProxy<IClientController>();
                         try
                         {
-                            await context.SendMessageAsync(fromUserId: Context.UserId.Value, message);
+                            await client.OnMessage(message, fromUserId: Context.UserId.Value);
                         }
                         catch (Exception ex)
                         {

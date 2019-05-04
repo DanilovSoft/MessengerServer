@@ -1,6 +1,7 @@
 ﻿using Contract;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using System.Text;
 using System.Threading;
@@ -8,29 +9,30 @@ using System.Threading.Tasks;
 
 namespace wRPC
 {
+    [DebuggerDisplay("{DebugDisplay,nq}")]
     internal sealed class TaskCompletionSource : INotifyCompletion
     {
-        private readonly RequestQueue _requestQueue;
+        [DebuggerBrowsable(DebuggerBrowsableState.Never)]
+        private string DebugDisplay => "{" + $"{Uid}" + "}";
         public int Uid { get; }
         /// <summary>
         /// Флаг используется как fast-path
         /// </summary>
         private volatile bool _isCompleted;
         public bool IsCompleted => _isCompleted;
-        private volatile Response _response;
+        private volatile Message _response;
         private Action _continuationAtomic;
 
-        public TaskCompletionSource(int uid, RequestQueue requestQueue)
+        public TaskCompletionSource(int uid)
         {
             Uid = uid;
-            _requestQueue = requestQueue;
         }
 
-        public Response GetResult() => _response;
+        public Message GetResult() => _response;
 
         public TaskCompletionSource GetAwaiter() => this;
 
-        public void OnResponse(Response response)
+        public void OnResponse(Message response)
         {
             _response = response;
             OnResult();

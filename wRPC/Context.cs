@@ -1,7 +1,5 @@
 ﻿using Contract;
 using DanilovSoft.WebSocket;
-using Newtonsoft.Json;
-using Newtonsoft.Json.Bson;
 using System;
 using System.Linq;
 using System.Buffers;
@@ -12,67 +10,216 @@ using System.Reflection;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
-using MyWebSocket = DanilovSoft.WebSocket.WebSocket;
 using MsgPack.Serialization;
 using MsgPack;
 using System.Diagnostics;
 using Ninject;
 using System.Collections.Concurrent;
 using Ninject.Activation.Blocks;
+using DynamicMethodsLib;
+using MyClientWebSocket = DanilovSoft.WebSocket.ClientWebSocket;
+using MyWebSocket = DanilovSoft.WebSocket.WebSocket;
 
 namespace wRPC
 {
+    /// <summary>
+    /// Контекст соединения Web-Сокета. Владеет соединением.
+    /// </summary>
     [DebuggerDisplay("{DebugDisplay,nq}")]
-    public sealed class Context
+    public class Context : IDisposable
     {
         #region Debug
         [DebuggerBrowsable(DebuggerBrowsableState.Never)]
         private string DebugDisplay => "{" + $"{{{nameof(Context)}}}, UserId = {UserId}" + "}";
         #endregion
 
-        private readonly StandardKernel _ioc;
+        public StandardKernel IoC { get; }
         /// <summary>
         /// Сервер который принял текущее соединение.
         /// </summary>
         private readonly Listener _listener;
         /// <summary>
+        /// Потокобезопасный словарь используемый только для чтения.
+        /// Хранит все доступные контроллеры. Не учитывает регистр.
+        /// </summary>
+        protected readonly Dictionary<string, Type> Controllers;
+        /// <summary>
         /// Объект синхронизации текущего экземпляра.
         /// </summary>
         private readonly object _syncObj = new object();
-        public MyWebSocket WebSocket { get; }
+        /// <summary>
+        /// Объект синхронизации для переиспользования прокси интерфейсов.
+        /// </summary>
+        private readonly object _proxyObj = new object();
+        private readonly Dictionary<Type, object> _proxies = new Dictionary<Type, object>();
+        internal readonly RequestQueue _requestQueue = new RequestQueue();
+        private readonly bool _isClientConnection;
+        internal MyWebSocket WebSocket { get; }
         public bool IsAuthorized { get; private set; }
         public int? UserId { get; private set; }
         /// <summary>
         /// Смежные соединения текущего пользователя.
         /// </summary>
         private UserConnections _connections;
+        private bool _disposed;
+        protected volatile bool _connected;
 
-        // ctor.
-        internal Context(MyWebSocket webSocket, StandardKernel ioc, Listener listener)
+        /// <summary>
+        /// Конструктор клиента.
+        /// </summary>
+        /// <param name="callingAssembly">Сборка в которой будет осеществляться поиск контроллеров.</param>
+        internal Context(Assembly callingAssembly)
         {
-            WebSocket = webSocket;
-            _ioc = ioc;
-            _listener = listener;
+            _isClientConnection = true;
+
+            // Словарь с найденными контроллерами в вызывающей сборке.
+            Controllers = GlobalVars.FindAllControllers(callingAssembly);
+
+            // У каждого клиента свой IoC.
+            IoC = new StandardKernel();
+
+            foreach (Type controllerType in Controllers.Values)
+                IoC.Bind(controllerType).ToSelf();
+
+            WebSocket = new MyClientWebSocket();
+
+            // Разрешает серверу доступ к контроллерам клиента.
+            IsAuthorized = true;
         }
 
-        public async Task SendMessageAsync(int fromUserId, string message)
+        /// <summary>
+        /// Конструктор сервера.
+        /// </summary>
+        internal Context(MyWebSocket clientConnection, StandardKernel ioc, Listener listener)
         {
-            var req = new Request
+            _isClientConnection = false;
+            _listener = listener;
+            IoC = ioc;
+
+            // Копируем список контроллеров сервера.
+            Controllers = listener.Controllers;
+
+            WebSocket = clientConnection;
+            _connected = true;
+
+            // Начать обработку запросов текущего пользователя.
+            StartReceivingLoop(WebSocket);
+        }
+
+        public T GetProxy<T>()
+        {
+            var attrib = typeof(T).GetCustomAttribute<ControllerContractAttribute>(inherit: false);
+            if (attrib == null)
+                throw new ArgumentNullException("controllerName", $"Укажите имя контроллера или пометьте интерфейс атрибутом \"{nameof(ControllerContractAttribute)}\"");
+
+            return GetProxy<T>(attrib.ControllerName);
+        }
+
+        public T GetProxy<T>(string controllerName)
+        {
+            Type type = typeof(T);
+            lock (_proxyObj)
             {
-                Uid = 0,
-                ActionName = "IncMsg", // IncommingMessage
-                Args = new[]
+                if(_proxies.TryGetValue(type, out object proxy))
                 {
-                    new Request.Arg("message", MessagePackObject.FromObject(message))
+                    return (T)proxy;
                 }
+
+                T proxyT = TypeProxy.Create<T, InterfaceProxy>((this, controllerName));
+                _proxies.Add(type, proxyT);
+                return proxyT;
+            }
+        }
+
+        /// <summary>
+        /// Происходит при обращении к проксирующему интерфейсу.
+        /// </summary>
+        internal object OnProxyCall(MethodInfo targetMethod, object[] args, string controllerName)
+        {
+            #region CreateArgs()
+            Message.Arg[] CreateArgs()
+            {
+                ParameterInfo[] par = targetMethod.GetParameters();
+                Message.Arg[] retArgs = new Message.Arg[par.Length];
+
+                for (int i = 0; i < par.Length; i++)
+                {
+                    ParameterInfo p = par[i];
+                    retArgs[i] = new Message.Arg(p.Name, MessagePackObject.FromObject(args[i]));
+                }
+                return retArgs;
+            }
+            #endregion
+
+            var request = new Message($"{controllerName}/{targetMethod.Name}")
+            {
+                Args = CreateArgs()
             };
 
-            byte[] buffer = req.Serialize();
+            // Задача с ответом сервера.
+            Task<object> taskObject = WaitResponseAsync(request);
 
-            // Потокобезопасная отправка.
-            // TODO
-            //throw new NotImplementedException();
-            //await WebSocket.SendAsync(buffer, WebSocketMessageType.Binary, endOfMessage: true);
+            // Если возвращаемый тип функции — Task.
+            if (typeof(Task).IsAssignableFrom(targetMethod.ReturnType))
+            {
+                // Если у задачи есть результат.
+                if (targetMethod.ReturnType.IsGenericType)
+                {
+                    // Тип результата задачи.
+                    Type resultType = targetMethod.ReturnType.GenericTypeArguments[0];
+
+                    // Task должен быть преобразован в Task<T>.
+                    return TaskConverter.ConvertTask(taskObject, resultType);
+                }
+
+                // Если возвращаемый тип Task(без результата) то можно вернуть Task<object>.
+                return taskObject;
+            }
+            else
+            // Была вызвана синхронная функция.
+            {
+                using (taskObject)
+                {
+                    object rawResult = taskObject.GetAwaiter().GetResult();
+                    return rawResult;
+                }
+            }
+        }
+
+        private async Task<object> WaitResponseAsync(Message request)
+        {
+            // Добавить в очередь запросов.
+            TaskCompletionSource tcs = _requestQueue.CreateRequest();
+            request.Uid = tcs.Uid;
+
+            // Арендуем память.
+            using (var rentMem = new ArrayPool(4096))
+            {
+                // Замена MemoryStream.
+                using (var stream = new MemoryStream(rentMem.Buffer))
+                {
+                    // Сериализуем запрос в память.
+                    GlobalVars.MessageSerializer.Pack(stream, request);
+
+                    if (this is ClientContext clientContext)
+                    {
+                        // Выполнить подключение сокета если еще не подключен.
+                        await clientContext.ConnectIfNeededAsync().ConfigureAwait(false);
+                    }
+
+                    var segment = new ArraySegment<byte>(rentMem.Buffer, 0, (int)stream.Position);
+                    // Отправка запроса.
+                    await WebSocket.SendAsync(segment, WebSocketMessageType.Binary, true, CancellationToken.None).ConfigureAwait(false);
+                }
+            }
+
+            // Ожидаем результат от потока поторый читает из сокета.
+            Message response = await tcs;
+
+            response.EnsureSuccessStatusCode();
+
+            object rawResult = response.Result.ToObject();
+            return rawResult;
         }
 
         /// <summary>
@@ -156,7 +303,7 @@ namespace wRPC
         /// Вызывает запрошенный клиентом метод и возвращает результат.
         /// </summary>
         /// <exception cref="RemoteException"/>
-        private async Task<object> InvokeActionAsync(Request request)
+        private async Task<object> InvokeActionAsync(Message request)
         {
             // Находим контроллер.
             Type controllerType = FindRequestedController(request, out string controllerName, out string actionName);
@@ -172,7 +319,7 @@ namespace wRPC
             PermissionCheck(method, controllerType);
 
             // Блок IoC выполнит Dispose всем созданным экземплярам.
-            using (IActivationBlock iocBlock = _ioc.BeginBlock())
+            using (IActivationBlock iocBlock = IoC.BeginBlock())
             {
                 // Активируем контроллер через IoC.
                 using (var controller = (Controller)iocBlock.Get(controllerType))
@@ -223,7 +370,7 @@ namespace wRPC
         /// <summary>
         /// Пытается найти запрашиваемый пользователем контроллер.
         /// </summary>
-        private Type FindRequestedController(Request request, out string controllerName, out string actionName)
+        private Type FindRequestedController(Message request, out string controllerName, out string actionName)
         {
             int index = request.ActionName.IndexOf('/');
             if (index == -1)
@@ -240,7 +387,7 @@ namespace wRPC
             controllerName += "Controller";
 
             // Ищем контроллер в кэше.
-            _listener._controllers.TryGetValue(controllerName, out Type controllerType);
+            Controllers.TryGetValue(controllerName, out Type controllerType);
 
             return controllerType;
         }
@@ -248,7 +395,7 @@ namespace wRPC
         /// <summary>
         /// Производит маппинг аргументов запроса в соответствии с делегатом.
         /// </summary>
-        private object[] GetParameters(MethodInfo method, Request request)
+        private object[] GetParameters(MethodInfo method, Message request)
         {
             ParameterInfo[] par = method.GetParameters();
             object[] args = new object[par.Length];
@@ -264,31 +411,27 @@ namespace wRPC
         }
 
         /// <summary>
-        /// Запускает цикл обработки запросов этого клиента.
+        /// Запускает бесконечный цикл считывающий из сокета зпросы и ответы.
         /// </summary>
-        internal void StartReceive()
+        protected async void StartReceivingLoop(object state)
         {
-            // Начать цикл обработки сообщений пользователя.
-            ReceaveAsync();
-        }
+            var ws = (MyWebSocket)state;
 
-        private async void ReceaveAsync()
-        {
             // Бесконечно обрабатываем запросы пользователя.
             while (true)
             {
-                Request request = null;
-                Response errorResponse = null;
+                Message message = null;
+                Message errorResponse = null;
 
                 // Арендуем память.
                 using (var buffer = new ArrayPool(4096))
                 {
                     #region Читаем запрос из сокета
 
-                    WebSocketReceiveResult message;
+                    WebSocketReceiveResult webSocketMessage;
                     try
                     {
-                        message = await WebSocket.ReceiveAsync(new ArraySegment<byte>(buffer.Buffer), CancellationToken.None);
+                        webSocketMessage = await WebSocket.ReceiveAsync(new ArraySegment<byte>(buffer.Buffer), CancellationToken.None);
                     }
                     catch (Exception ex)
                     // Обрыв соединения.
@@ -298,13 +441,20 @@ namespace wRPC
                     }
                     #endregion
 
+                    // Другая сторона закрыла соединение.
+                    if(webSocketMessage.MessageType == WebSocketMessageType.Close)
+                    {
+                        // Завершить поток.
+                        return;
+                    }
+
                     #region Десериализуем запрос
 
-                    using (var mem = new MemoryStream(buffer.Buffer, 0, message.Count))
+                    using (var mem = new MemoryStream(buffer.Buffer, 0, webSocketMessage.Count))
                     {
                         try
                         {
-                            request = MessagePackSerializer.Get<Request>().Unpack(mem);
+                            message = GlobalVars.MessageSerializer.Unpack(mem);
                         }
                         catch (Exception ex)
                         // Ошибка десериализации запроса.
@@ -312,30 +462,37 @@ namespace wRPC
                             Debug.WriteLine(ex);
 
                             // Подготоваить ответ с ошибкой.
-                            errorResponse = request.ErrorResponse("Invalid Request Format Error", ErrorCode.InvalidRequestFormat);
+                            errorResponse = message.ErrorResponse($"Unable to deserialize type \"{typeof(Message).Name}\"", ErrorCode.InvalidRequestFormat);
                         }
                     }
                     #endregion
                 }
 
-                if (errorResponse == null)
-                // Запрос десериализован без ошибок.
+                if (message.IsRequest)
                 {
-                    // Начать выполнение запроса не блокируя обработку следующих запросов этого клиента.
-                    ThreadPool.UnsafeQueueUserWorkItem(StartProcessRequestAsync, request);
+                    if (errorResponse == null)
+                    // Запрос десериализован без ошибок.
+                    {
+                        // Начать выполнение запроса не блокируя обработку следующих запросов этого клиента.
+                        ThreadPool.UnsafeQueueUserWorkItem(StartProcessRequestAsync, message);
+                    }
+                    else
+                    // Произошла ошибка при разборе запроса.
+                    {
+                        // Отправить результат с ошибкой не блокируя обработку следующих запросов этого клиента.
+                        ThreadPool.UnsafeQueueUserWorkItem(SendErrorResponse, errorResponse);
+                    }
                 }
                 else
-                // Произошла ошибка при разборе запроса.
                 {
-                    // Отправить результат с ошибкой не блокируя обработку следующих запросов этого клиента.
-                    ThreadPool.UnsafeQueueUserWorkItem(SendErrorResponse, errorResponse);
+                    _requestQueue.OnResponse(message);
                 }
             }
         }
 
         private async void SendErrorResponse(object state)
         {
-            var errorResponse = (Response)state;
+            var errorResponse = (Message)state;
 
             try
             {
@@ -353,10 +510,10 @@ namespace wRPC
         /// </summary>
         private async void StartProcessRequestAsync(object state)
         {
-            var request = (Request)state;
+            var request = (Message)state;
 
             // Выполнить запрос и получить инкапсулированный результат.
-            Response response = await GetResponseAsync(request);
+            Message response = await GetResponseAsync(request);
 
             try
             {
@@ -376,7 +533,7 @@ namespace wRPC
         /// <summary>
         /// Выполняет запрос клиента и инкапсулирует результат в <see cref="Response"/>. Не бросает исключения.
         /// </summary>
-        private async Task<Response> GetResponseAsync(Request request)
+        private async Task<Message> GetResponseAsync(Message request)
         {
             try
             {
@@ -396,6 +553,7 @@ namespace wRPC
             catch (Exception ex)
             // Злая ошибка обработки запроса.
             {
+                DebugOnly.Break();
                 Debug.WriteLine(ex);
 
                 // Подготовить результат с ошибкой.
@@ -403,15 +561,26 @@ namespace wRPC
             }
         }
 
-        private Response OkResponse(Request request, object result)
+        private Message OkResponse(Message request, object result)
         {
-            return new Response(request.Uid, MessagePackObject.FromObject(result), error: null, errorCode: null);
+            return new Message(request.Uid, MessagePackObject.FromObject(result), error: null, errorCode: null);
         }
 
-        private async Task SendResponseAsync(Response response)
+        private async Task SendResponseAsync(Message response)
         {
-            byte[] buffer = response.Serialize();
-            await WebSocket.SendAsync(new ArraySegment<byte>(buffer), WebSocketMessageType.Binary, endOfMessage: true, CancellationToken.None);
+            using (var arrayPool = response.Serialize(out int size))
+            {
+                await WebSocket.SendAsync(new ArraySegment<byte>(arrayPool.Buffer, 0, size), WebSocketMessageType.Binary, endOfMessage: true, CancellationToken.None);
+            }
+        }
+
+        public virtual void Dispose()
+        {
+            if (!_disposed)
+            {
+                _disposed = true;
+                WebSocket.Dispose();
+            }
         }
     }
 }
