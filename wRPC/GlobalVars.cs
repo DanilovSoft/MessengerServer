@@ -9,11 +9,11 @@ namespace wRPC
 {
     internal static class GlobalVars
     {
-        public static MessagePackSerializer<Message> MessageSerializer { get; }
+        //public static MessagePackSerializer<Message> MessageSerializer { get; }
 
         static GlobalVars()
         {
-            MessageSerializer = MessagePackSerializer.Get<Message>();
+            //MessageSerializer = MessagePackSerializer.Get<Message>();
         }
 
         public static readonly Action DummyAction = delegate { };

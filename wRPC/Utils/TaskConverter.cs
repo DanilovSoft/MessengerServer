@@ -31,7 +31,7 @@ namespace wRPC
         {
             return task.ContinueWith(t =>
             {
-                var result = (T)t.Result;
+                var result = (T)t.GetAwaiter().GetResult();
                 t.Dispose();
                 return result;
             });

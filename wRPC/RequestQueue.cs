@@ -23,30 +23,22 @@ namespace wRPC
         /// <summary>
         /// Потокобезопасно добавляет запрос в очередь запросов.
         /// </summary>
-        public TaskCompletionSource CreateRequest()
+        public TaskCompletionSource CreateRequest(Message message, out int uid)
         {
             do
             {
                 lock (_dict)
                 {
-                    int uid = _rnd.Next();
+                    uid = _rnd.Next();
                     if (!_dict.ContainsKey(uid))
                     {
-                        var tcs = new TaskCompletionSource(uid);
+                        var tcs = new TaskCompletionSource(message);
                         _dict.Add(uid, tcs);
                         return tcs;
                     }
                 }
             } while (true);
         }
-
-        //internal void RemoveRequest(int uid)
-        //{
-        //    lock (_dict)
-        //    {
-        //        _dict.Remove(uid);
-        //    }
-        //}
 
         /// <summary>
         /// Потокобезопасно связывает результат запроса с самим запросом.
@@ -69,6 +61,21 @@ namespace wRPC
             if(removed)
             {
                 tcs.OnResponse(message);
+            }
+        }
+
+        internal void OnException(Exception exception)
+        {
+            lock (_dict)
+            {
+                if (_dict.Count > 0)
+                {
+                    foreach (TaskCompletionSource tcs in _dict.Values)
+                    {
+                        tcs.OnException(exception);
+                    }
+                    _dict.Clear();
+                }
             }
         }
     }

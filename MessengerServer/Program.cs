@@ -21,6 +21,7 @@ namespace MessengerServer
                     {
                         ///listener.IOC.Bind<ISqlContext>().To<SqlContext>();
 
+                        Console.WriteLine("Ожидание подключений...");
                         listener.StartAccept();
 
                         Thread.Sleep(-1);

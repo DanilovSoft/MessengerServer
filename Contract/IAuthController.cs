@@ -8,6 +8,6 @@ namespace wRPC.Contract
     [ControllerContract("Auth")]
     public interface IAuthController
     {
-        Task<bool> Authorize(string login, string password);
+        Task<BearerToken> Authorize(string login, string password);
     }
 }

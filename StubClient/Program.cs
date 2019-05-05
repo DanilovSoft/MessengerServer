@@ -24,7 +24,9 @@ namespace StubClient
                 var homeController = client.GetProxy<IHomeController>();
 
                 Console.WriteLine("Авторизация...");
-                bool success = await authController.Authorize(login: "User1", password: "Passw0rd");
+                BearerToken token = await authController.Authorize(login: "User1", password: "Passw0rd");
+                client.BearerToken = token.Token;
+
                 while (true)
                 {
                     Console.Write("Введите сообщение: ");

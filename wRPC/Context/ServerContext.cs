@@ -2,6 +2,7 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.IO;
 using System.Reflection;
 using System.Text;
 using MyClientWebSocket = DanilovSoft.WebSocket.ClientWebSocket;
@@ -32,7 +33,8 @@ namespace wRPC
         /// <summary>
         /// Смежные соединения текущего пользователя.
         /// </summary>
-        public UserConnections Connections { get; protected set; }
+        public UserConnections Connections { get; private set; }
+        private readonly RijndaelEnhanced _jwt;
 
         public ServerContext(MyWebSocket clientConnection, StandardKernel ioc, Listener listener) : base(clientConnection, ioc)
         {
@@ -40,14 +42,76 @@ namespace wRPC
 
             // Копируем список контроллеров сервера.
             Controllers = listener.Controllers;
+
+            string passPhrase = "Pas5pr@se";        // can be any string
+            string initVector = "@1B2c3D4e5F6g7H8"; // must be 16 bytes
+            _jwt = new RijndaelEnhanced(passPhrase, initVector);
+
+            // Начать обработку запросов текущего пользователя.
+            StartReceivingLoop(WebSocket);
         }
 
         /// <summary>
-        /// Производит авторизацию текущего подключения.
+            /// Производит авторизацию текущего подключения.
+            /// </summary>
+            /// <param name="userId"></param>
+            /// <exception cref="RemoteException"/>
+        public BearerToken Authorize(int userId)
+        {
+            // Функцию могут вызвать из нескольких потоков.
+            lock (_syncObj)
+            {
+                InnerAuthorize(userId);
+
+                var tokenValidity = TimeSpan.FromDays(2);
+                var serverBearer = new ServerBearerToken
+                {
+                    UserId = userId,
+                    Validity = DateTime.Now + tokenValidity,
+                };
+
+                byte[] serialized;
+                using (var mem = new MemoryStream(capacity: 18))
+                {
+                    ProtoBuf.Serializer.Serialize(mem, serverBearer);
+                    serialized = mem.ToArray();
+                }
+
+                // Закриптовать в бинарник идентификатор пользователя.
+                byte[] encryptedToken = _jwt.EncryptToBytes(serialized);
+
+                var token = new BearerToken
+                {
+                    Token = encryptedToken,
+                    ExpiresAt = tokenValidity
+                };
+
+                return token;
+            }
+        }
+
+        /// <summary>
+        /// Производит авторизацию текущего подключения по токену.
         /// </summary>
         /// <param name="userId"></param>
         /// <exception cref="RemoteException"/>
-        public void Authorize(int userId)
+        public void AuthorizeToken(byte[] encriptedToken)
+        {
+            byte[] decripted = _jwt.DecryptToBytes(encriptedToken);
+
+            ServerBearerToken bearerToken;
+            using (var mem = new MemoryStream(decripted))
+            {
+                bearerToken = ProtoBuf.Serializer.Deserialize<ServerBearerToken>(mem);
+            }
+
+            if (DateTime.Now < bearerToken.Validity)
+            {
+                InnerAuthorize(bearerToken.UserId);
+            }
+        }
+
+        private void InnerAuthorize(int userId)
         {
             // Функцию могут вызвать из нескольких потоков.
             lock (_syncObj)
@@ -145,6 +209,12 @@ namespace wRPC
                 return;
 
             throw new RemoteException("The request requires user authentication", ErrorCode.Unauthorized);
+        }
+
+        public override void Dispose()
+        {
+            base.Dispose();
+            _jwt.Dispose();
         }
     }
 }

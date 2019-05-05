@@ -17,14 +17,20 @@ namespace MessengerServer.Controllers
         }
 
         [AllowAnonymous]
-        public Task<bool> Authorize(string login, string password)
+        public Task<BearerToken> Authorize(string login, string password)
         {
             // Авторизовываем текущее подключение.
-            Context.Authorize(userId: 123456);
+            BearerToken token = Context.Authorize(userId: 123456);
 
             Console.WriteLine($"Авторизован пользователь: \"{login}\"");
 
-            return Task.FromResult(true);
+            return Task.FromResult(token);
+        }
+
+        [AllowAnonymous]
+        public void AuthorizeToken(byte[] token)
+        {
+            Context.AuthorizeToken(token);
         }
     }
 }

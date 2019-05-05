@@ -23,11 +23,34 @@ namespace wRPC
         private readonly AsyncLock _asyncLock;
         private readonly Uri _uri;
         private volatile bool _connected;
+        public byte[] BearerToken { get; set; }
 
         public ClientContext(Assembly callingAssembly, Uri uri) : base(callingAssembly)
         {
             _uri = uri;
             _asyncLock = new AsyncLock();
+
+            WebSocket = new MyClientWebSocket();
+            WebSocket.Disconnected += WebSocket_Disconnected;
+        }
+
+        private async void WebSocket_Disconnected(object sender, EventArgs e)
+        {
+            var ws = (MyClientWebSocket)sender;
+            ws.Disconnected -= WebSocket_Disconnected;
+            ws.Dispose();
+
+            if (_connected)
+            {
+                using (await _asyncLock.LockAsync().ConfigureAwait(false))
+                {
+                    if (_connected)
+                    {
+                        _connected = false;
+                        WebSocket = new MyClientWebSocket();
+                    }
+                }
+            }
         }
 
         /// <summary>
@@ -61,11 +84,37 @@ namespace wRPC
                             throw;
                         }
 
-                        //var context = Context = new Context(ws, IoC, listener: null);
                         _connected = true;
                         ThreadPool.UnsafeQueueUserWorkItem(StartReceivingLoop, ws);
+
+                        try
+                        {
+                            await AuthorizeAsync(ws).ConfigureAwait(false);
+                        }
+                        catch (Exception ex)
+                        // Обрыв соединения.
+                        {
+                            Debug.WriteLine(ex);
+                            throw;
+                        }
                     }
                 }
+            }
+        }
+
+        private async Task AuthorizeAsync(WebSocket ws)
+        {
+            var token = BearerToken;
+            if (token != null)
+            {
+                var message = new Message("Auth/AuthorizeToken")
+                {
+                    Args = new Message.Arg[]
+                    {
+                        new Message.Arg("token", BearerToken)
+                    }
+                };
+                await ExecuteRequestAsync(message, typeof(void), doConnect: false).ConfigureAwait(false);
             }
         }
 

@@ -13,24 +13,38 @@ namespace wRPC
     internal sealed class TaskCompletionSource : INotifyCompletion
     {
         [DebuggerBrowsable(DebuggerBrowsableState.Never)]
-        private string DebugDisplay => "{" + $"{Uid}" + "}";
-        public int Uid { get; }
+        private string DebugDisplay => "{" + $"{Message.ActionName}" + "}";
         /// <summary>
         /// Флаг используется как fast-path
         /// </summary>
         private volatile bool _isCompleted;
         public bool IsCompleted => _isCompleted;
         private volatile Message _response;
+        private volatile Exception _exception;
         private Action _continuationAtomic;
+        private readonly Message Message;
 
-        public TaskCompletionSource(int uid)
+        public TaskCompletionSource(Message message)
         {
-            Uid = uid;
+            Message = message;
         }
 
-        public Message GetResult() => _response;
+        public Message GetResult()
+        {
+            var ex = _exception;
+            if (ex != null)
+                throw ex;
+
+            return _response;
+        }
 
         public TaskCompletionSource GetAwaiter() => this;
+
+        public void OnException(Exception exception)
+        {
+            _exception = exception;
+            OnResult();
+        }
 
         public void OnResponse(Message response)
         {

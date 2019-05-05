@@ -33,22 +33,19 @@ namespace wRPC
         /// </summary>
         private readonly object _proxyObj = new object();
         private readonly Dictionary<Type, object> _proxies = new Dictionary<Type, object>();
-        internal readonly RequestQueue _requestQueue = new RequestQueue();
-        private readonly bool _isClientConnection;
+        private readonly RequestQueue _requestQueue = new RequestQueue();
         /// <summary>
         /// Потокобезопасный словарь используемый только для чтения.
         /// Хранит все доступные контроллеры. Не учитывает регистр.
         /// </summary>
         protected Dictionary<string, Type> Controllers;
-        internal MyWebSocket WebSocket { get; }
+        internal MyWebSocket WebSocket { get; set; }
         private bool _disposed;
 
         // ctor.
         /// <param name="callingAssembly">Сборка в которой будет осеществляться поиск контроллеров.</param>
         internal Context(Assembly callingAssembly)
         {
-            _isClientConnection = true;
-
             // Словарь с найденными контроллерами в вызывающей сборке.
             Controllers = GlobalVars.FindAllControllers(callingAssembly);
 
@@ -57,8 +54,6 @@ namespace wRPC
 
             foreach (Type controllerType in Controllers.Values)
                 IoC.Bind(controllerType).ToSelf();
-
-            WebSocket = new MyClientWebSocket();
         }
 
         /// <summary>
@@ -66,13 +61,8 @@ namespace wRPC
         /// </summary>
         internal Context(MyWebSocket clientConnection, StandardKernel ioc)
         {
-            _isClientConnection = false;
             IoC = ioc;
-
             WebSocket = clientConnection;
-
-            // Начать обработку запросов текущего пользователя.
-            StartReceivingLoop(WebSocket);
         }
 
         public T GetProxy<T>()
@@ -114,7 +104,7 @@ namespace wRPC
                 for (int i = 0; i < par.Length; i++)
                 {
                     ParameterInfo p = par[i];
-                    retArgs[i] = new Message.Arg(p.Name, MessagePackObject.FromObject(args[i]));
+                    retArgs[i] = new Message.Arg(p.Name, args[i]);
                 }
                 return retArgs;
             }
@@ -125,8 +115,11 @@ namespace wRPC
                 Args = CreateArgs()
             };
 
-            // Задача с ответом сервера.
-            Task<object> taskObject = WaitResponseAsync(request);
+            // Тип результата.
+            Type resultType = GetActionReturnType(targetMethod);
+
+            // Задача с ответом от удалённой стороны.
+            Task<object> taskObject = ExecuteRequestAsync(request, resultType);
 
             // Если возвращаемый тип функции — Task.
             if (typeof(Task).IsAssignableFrom(targetMethod.ReturnType))
@@ -135,9 +128,9 @@ namespace wRPC
                 if (targetMethod.ReturnType.IsGenericType)
                 {
                     // Тип результата задачи.
-                    Type resultType = targetMethod.ReturnType.GenericTypeArguments[0];
+                    //Type resultType = targetMethod.ReturnType.GenericTypeArguments[0];
 
-                    // Task должен быть преобразован в Task<T>.
+                    // Task<object> должен быть преобразован в Task<T>.
                     return TaskConverter.ConvertTask(taskObject, resultType);
                 }
 
@@ -155,11 +148,16 @@ namespace wRPC
             }
         }
 
-        private async Task<object> WaitResponseAsync(Message request)
+        /// <summary>
+        /// Отправляет запрос о дожидается его ответа.
+        /// </summary>
+        private protected async Task<object> ExecuteRequestAsync(Message request, Type resultType, bool doConnect = true)
         {
             // Добавить в очередь запросов.
-            TaskCompletionSource tcs = _requestQueue.CreateRequest();
-            request.Uid = tcs.Uid;
+            TaskCompletionSource tcs = _requestQueue.CreateRequest(request, out int uid);
+
+            // Назначить запросу уникальный идентификатор.
+            request.Uid = uid;
 
             // Арендуем память.
             using (var rentMem = new ArrayPool(4096))
@@ -168,9 +166,9 @@ namespace wRPC
                 using (var stream = new MemoryStream(rentMem.Buffer))
                 {
                     // Сериализуем запрос в память.
-                    GlobalVars.MessageSerializer.Pack(stream, request);
+                    request.Serialize(stream);
 
-                    if (this is ClientContext clientContext)
+                    if (doConnect && this is ClientContext clientContext)
                     {
                         // Выполнить подключение сокета если еще не подключен.
                         await clientContext.ConnectIfNeededAsync().ConfigureAwait(false);
@@ -187,8 +185,101 @@ namespace wRPC
 
             response.EnsureSuccessStatusCode();
 
-            object rawResult = response.Result.ToObject();
+            object rawResult = response.Result?.ToObject(resultType);
             return rawResult;
+        }
+
+        /// <summary>
+        /// Запускает бесконечный цикл считывающий из сокета зпросы и ответы.
+        /// </summary>
+        protected async void StartReceivingLoop(object state)
+        {
+            var ws = (MyWebSocket)state;
+            ws.Disconnected += Ws_Disconnected;
+
+            // Бесконечно обрабатываем запросы пользователя.
+            while (true)
+            {
+                Message message = null;
+                Message errorResponse = null;
+
+                // Арендуем память.
+                using (var buffer = new ArrayPool(4096))
+                {
+                    #region Читаем запрос из сокета
+
+                    WebSocketReceiveResult webSocketMessage;
+                    try
+                    {
+                        webSocketMessage = await WebSocket.ReceiveAsync(new ArraySegment<byte>(buffer.Buffer), CancellationToken.None);
+                    }
+                    catch (Exception ex)
+                    // Обрыв соединения.
+                    {
+                        Debug.WriteLine(ex);
+                        return;
+                    }
+                    #endregion
+
+                    // Другая сторона закрыла соединение.
+                    if (webSocketMessage.MessageType == WebSocketMessageType.Close)
+                    {
+                        // Завершить поток.
+                        return;
+                    }
+
+                    #region Десериализуем запрос
+
+                    using (var mem = new MemoryStream(buffer.Buffer, 0, webSocketMessage.Count))
+                    {
+                        try
+                        {
+                            message = ExtensionMethods.Deserialize<Message>(mem);
+                        }
+                        catch (Exception ex)
+                        // Ошибка десериализации запроса.
+                        {
+                            Debug.WriteLine(ex);
+
+                            // Подготоваить ответ с ошибкой.
+                            errorResponse = message.ErrorResponse($"Unable to deserialize type \"{typeof(Message).Name}\"", ErrorCode.InvalidRequestFormat);
+                        }
+                    }
+                    #endregion
+                }
+
+                if (message.IsRequest)
+                {
+                    if (errorResponse == null)
+                    // Запрос десериализован без ошибок.
+                    {
+                        // Начать выполнение запроса не блокируя обработку следующих запросов этого клиента.
+                        ThreadPool.UnsafeQueueUserWorkItem(StartProcessRequestAsync, message);
+                    }
+                    else
+                    // Произошла ошибка при разборе запроса.
+                    {
+                        // Отправить результат с ошибкой не блокируя обработку следующих запросов этого клиента.
+                        ThreadPool.UnsafeQueueUserWorkItem(SendErrorResponse, errorResponse);
+                    }
+                }
+                else
+                {
+                    if (errorResponse == null)
+                    {
+                        _requestQueue.OnResponse(message);
+                    }
+                }
+            }
+        }
+
+        private void Ws_Disconnected(object sender, EventArgs e)
+        {
+            var ws = (MyWebSocket)sender;
+            ws.Disconnected -= Ws_Disconnected;
+            ws.Dispose();
+
+            _requestQueue.OnException(new InvalidOperationException("Произошел обрыв соединения"));
         }
 
         /// <summary>
@@ -223,17 +314,43 @@ namespace wRPC
                     object[] args = GetParameters(method, request);
 
                     // Вызов делегата.
-                    object result = method.InvokeFast(controller, args);
+                    object rawResult = method.InvokeFast(controller, args);
 
-                    if (result != null)
+                    if (rawResult != null)
                     {
                         // Результатом делегата может быть Task.
-                        result = await DynamicAwaiter.FromAsync(result);
+                        rawResult = await DynamicAwaiter.FromAsync(rawResult);
                     }
 
+                    Type returnType = GetActionReturnType(method);
+
                     // Результат успешно получен.
-                    return result;
+                    return rawResult;
                 }
+            }
+        }
+
+        private static Type GetActionReturnType(MethodInfo method)
+        {
+            // Если возвращаемый тип функции — Task.
+            if (typeof(Task).IsAssignableFrom(method.ReturnType))
+            {
+                // Если у задачи есть результат.
+                if (method.ReturnType.IsGenericType)
+                {
+                    // Тип результата задачи.
+                    Type resultType = method.ReturnType.GenericTypeArguments[0];
+
+                    return resultType;
+                }
+
+                // Возвращаемый тип Task(без результата).
+                return typeof(void);
+            }
+            else
+            // Была вызвана синхронная функция.
+            {
+                return method.ReturnType;
             }
         }
 
@@ -281,93 +398,10 @@ namespace wRPC
             {
                 ParameterInfo p = par[i];
                 string parName = p.Name;
-                args[i] = request.Args.FirstOrDefault(x => x.ParameterName.Equals(parName, StringComparison.InvariantCultureIgnoreCase))?.Value.ToObject();
+                args[i] = request.Args.FirstOrDefault(x => x.ParameterName.Equals(parName, StringComparison.InvariantCultureIgnoreCase))?.Value.ToObject(p.ParameterType);
             }
 
             return args;
-        }
-
-        /// <summary>
-        /// Запускает бесконечный цикл считывающий из сокета зпросы и ответы.
-        /// </summary>
-        protected async void StartReceivingLoop(object state)
-        {
-            var ws = (MyWebSocket)state;
-
-            // Бесконечно обрабатываем запросы пользователя.
-            while (true)
-            {
-                Message message = null;
-                Message errorResponse = null;
-
-                // Арендуем память.
-                using (var buffer = new ArrayPool(4096))
-                {
-                    #region Читаем запрос из сокета
-
-                    WebSocketReceiveResult webSocketMessage;
-                    try
-                    {
-                        webSocketMessage = await WebSocket.ReceiveAsync(new ArraySegment<byte>(buffer.Buffer), CancellationToken.None);
-                    }
-                    catch (Exception ex)
-                    // Обрыв соединения.
-                    {
-                        Debug.WriteLine(ex);
-                        return;
-                    }
-                    #endregion
-
-                    // Другая сторона закрыла соединение.
-                    if(webSocketMessage.MessageType == WebSocketMessageType.Close)
-                    {
-                        // Завершить поток.
-                        return;
-                    }
-
-                    #region Десериализуем запрос
-
-                    using (var mem = new MemoryStream(buffer.Buffer, 0, webSocketMessage.Count))
-                    {
-                        try
-                        {
-                            message = GlobalVars.MessageSerializer.Unpack(mem);
-                        }
-                        catch (Exception ex)
-                        // Ошибка десериализации запроса.
-                        {
-                            Debug.WriteLine(ex);
-
-                            // Подготоваить ответ с ошибкой.
-                            errorResponse = message.ErrorResponse($"Unable to deserialize type \"{typeof(Message).Name}\"", ErrorCode.InvalidRequestFormat);
-                        }
-                    }
-                    #endregion
-                }
-
-                if (message.IsRequest)
-                {
-                    if (errorResponse == null)
-                    // Запрос десериализован без ошибок.
-                    {
-                        // Начать выполнение запроса не блокируя обработку следующих запросов этого клиента.
-                        ThreadPool.UnsafeQueueUserWorkItem(StartProcessRequestAsync, message);
-                    }
-                    else
-                    // Произошла ошибка при разборе запроса.
-                    {
-                        // Отправить результат с ошибкой не блокируя обработку следующих запросов этого клиента.
-                        ThreadPool.UnsafeQueueUserWorkItem(SendErrorResponse, errorResponse);
-                    }
-                }
-                else
-                {
-                    if (errorResponse == null)
-                    {
-                        _requestQueue.OnResponse(message);
-                    }
-                }
-            }
         }
 
         private async void SendErrorResponse(object state)
@@ -376,7 +410,7 @@ namespace wRPC
 
             try
             {
-                await SendResponseAsync(errorResponse);
+                await SendMessageAsync(errorResponse);
             }
             catch (Exception ex)
             // Обрыв соединения.
@@ -398,7 +432,7 @@ namespace wRPC
             try
             {
                 // Сериализовать и отправить результат.
-                await SendResponseAsync(response);
+                await SendMessageAsync(response);
             }
             catch (Exception ex)
             // Обрыв соединения.
@@ -418,11 +452,11 @@ namespace wRPC
             try
             {
                 // Выполнить запрашиваемую функцию
-                object result = await InvokeActionAsync(request);
+                object rawResult = await InvokeActionAsync(request);
 
                 // Запрашиваемая функция выполнена успешно.
                 // Подготовить возвращаемый результат.
-                return OkResponse(request, result);
+                return OkResponse(request, rawResult);
             }
             catch (RemoteException ex)
             // Дружелюбная ошибка.
@@ -441,14 +475,17 @@ namespace wRPC
             }
         }
 
-        private Message OkResponse(Message request, object result)
+        private Message OkResponse(Message request, object rawResult)
         {
-            return new Message(request.Uid, MessagePackObject.FromObject(result), error: null, errorCode: null);
+            return new Message(request.Uid, rawResult, error: null, errorCode: null);
         }
 
-        private async Task SendResponseAsync(Message response)
+        /// <summary>
+        /// Сериализует сообщение и отправляет в сокет.
+        /// </summary>
+        private protected async Task SendMessageAsync(Message message)
         {
-            using (var arrayPool = response.Serialize(out int size))
+            using (var arrayPool = message.Serialize(out int size))
             {
                 await WebSocket.SendAsync(new ArraySegment<byte>(arrayPool.Buffer, 0, size), WebSocketMessageType.Binary, endOfMessage: true, CancellationToken.None);
             }

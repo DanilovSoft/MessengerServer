@@ -1,6 +1,8 @@
 ﻿using Contract;
 using MsgPack;
 using MsgPack.Serialization;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Bson;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -27,7 +29,12 @@ namespace wRPC
             {
                 try
                 {
-                    GlobalVars.MessageSerializer.Pack(mem, request);
+                    using (var binaryWriter = new BinaryWriter(mem, new UTF8Encoding(false, true), leaveOpen: true))
+                    using (var bson = new BsonDataWriter(binaryWriter))
+                    {
+                        var ser = new JsonSerializer();
+                        ser.Serialize(bson, request);
+                    }
                 }
                 catch
                 {
@@ -37,6 +44,26 @@ namespace wRPC
                 size = (int)mem.Position;
             }
             return ar;
+        }
+
+        public static void Serialize(this Message request, Stream stream)
+        {
+            using (var binaryWriter = new BinaryWriter(stream, new UTF8Encoding(false, true), leaveOpen: true))
+            using (var bson = new BsonDataWriter(binaryWriter))
+            {
+                var ser = new JsonSerializer();
+                ser.Serialize(bson, request);
+            }
+        }
+
+        public static T Deserialize<T>(Stream stream)
+        {
+            using (var binaryWriter = new BinaryReader(stream, new UTF8Encoding(), leaveOpen: true))
+            using (var bson = new BsonDataReader(binaryWriter))
+            {
+                var ser = new JsonSerializer();
+                return ser.Deserialize<T>(bson);
+            }
         }
     }
 }

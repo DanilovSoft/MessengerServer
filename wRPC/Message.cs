@@ -1,6 +1,7 @@
-﻿using MsgPack;
-using MsgPack.Serialization;
+﻿using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 using System.Diagnostics;
+using System.Runtime.Serialization;
 using wRPC;
 
 namespace Contract
@@ -8,50 +9,48 @@ namespace Contract
     /// <summary>
     /// Сериализуемое сообщение для удаленного соединения.
     /// </summary>
+    [JsonObject(ItemNullValueHandling = NullValueHandling.Ignore)]
     [DebuggerDisplay("{DebugDisplay,nq}")]
     public sealed class Message
     {
         #region Debug
-        [MessagePackIgnore]
+        [JsonIgnore]
         [DebuggerBrowsable(DebuggerBrowsableState.Never)]
-        private string DebugDisplay => "{" + $"\"{ActionName}\"" + "}";
+        private string DebugDisplay => "{" + $"\"{(IsRequest ? ActionName : $"Result: {Result}")}\"" + "}";
         #endregion
 
-        [MessagePackMember(1)]
+        [JsonProperty(Order = 1, DefaultValueHandling = DefaultValueHandling.IgnoreAndPopulate)]
         public bool IsRequest;
 
-        [MessagePackMember(2)]
-        public int Uid { get; set; }
+        [JsonProperty(Order = 2)]
+        public int Uid;
 
-        [MessagePackMember(3)]
-        public string ActionName { get; set; }
+        [JsonProperty(Order = 3)]
+        public string ActionName;
 
         /// <summary>
         /// Параметры для удаленного метода <see cref="ActionName"/>.
         /// </summary>
-        [MessagePackMember(4)]
-        public Arg[] Args { get; set; }
+        [JsonProperty(Order = 4, DefaultValueHandling = DefaultValueHandling.IgnoreAndPopulate)]
+        public Arg[] Args;
 
-        [MessagePackMember(5)]
-        public MessagePackObject Result { get; set; }
+        [JsonProperty(Order = 5, DefaultValueHandling = DefaultValueHandling.Ignore)]
+        public JToken Result;
 
         /// <summary>
         /// Не <see langword="null"/> если запрос завершен с ошибкой.
         /// </summary>
-        [MessagePackMember(6)]
-        public ErrorCode? ErrorCode { get; set; }
+        [JsonProperty(Order = 6, DefaultValueHandling = DefaultValueHandling.IgnoreAndPopulate)]
+        public ErrorCode? ErrorCode;
 
-        [MessagePackMember(7)]
-        public string Error { get; set; }
+        [JsonProperty(Order = 7, DefaultValueHandling = DefaultValueHandling.IgnoreAndPopulate)]
+        public string Error;
 
-        [MessagePackIgnore]
+        [JsonIgnore]
         public bool IsSuccessStatusCode => (ErrorCode == null);
 
-        [MessagePackDeserializationConstructor]
-        public Message()
-        {
-
-        }
+        [JsonConstructor]
+        private Message() { }
 
         /// <summary>
         /// Конструктор запроса.
@@ -65,11 +64,11 @@ namespace Contract
         /// <summary>
         /// Конструктор ответа.
         /// </summary>
-        public Message(int uid, MessagePackObject result, string error, ErrorCode? errorCode)
+        public Message(int uid, object result, string error, ErrorCode? errorCode)
         {
             IsRequest = false; 
             Uid = uid;
-            Result = result;
+            Result = result == null ? null : JToken.FromObject(result);
             Error = error;
             ErrorCode = errorCode;
         }
@@ -89,81 +88,30 @@ namespace Contract
             }
         }
 
+        [DataContract]
         [DebuggerDisplay("{DebugDisplay,nq}")]
         public sealed class Arg
         {
             #region Debug
-            [MessagePackIgnore]
+            [JsonIgnore]
             [DebuggerBrowsable(DebuggerBrowsableState.Never)]
             private string DebugDisplay => $"\"{ParameterName}\": {Value}";
             #endregion
 
-            [MessagePackMember(1)]
-            public string ParameterName { get; }
+            [JsonProperty(Order = 1)]
+            public string ParameterName;
 
-            [MessagePackMember(2)]
-            public MessagePackObject Value { get; }
+            [JsonProperty(Order = 2)]
+            public JToken Value;
 
-            public Arg(string parameterName, MessagePackObject value)
+            [JsonConstructor]
+            private Arg() { }
+
+            public Arg(string parameterName, object value)
             {
                 ParameterName = parameterName;
-                Value = value;
+                Value = JToken.FromObject(value);
             }
         }
     }
-
-    ///// <summary>
-    ///// Сериализуемый ответ на запрос <see cref="Request"/>.
-    ///// </summary>
-    //[DebuggerDisplay("{DebugDisplay,nq}")]
-    //public sealed class Response
-    //{
-    //    #region Debug
-    //    [MessagePackIgnore]
-    //    [DebuggerBrowsable(DebuggerBrowsableState.Never)]
-    //    private string DebugDisplay => "{" + $"{(Error == null ? $"Result: {Result}" : $"Error: \"{Error}\"")}" + "}";
-    //    #endregion
-
-    //    [MessagePackMember(1)]
-    //    public int Uid { get; }
-
-    //    [MessagePackMember(2)]
-    //    public MessagePackObject Result { get; }
-
-    //    [MessagePackMember(3)]
-    //    public string Error { get; }
-
-    //    /// <summary>
-    //    /// Не <see langword="null"/> если запрос завершен с ошибкой.
-    //    /// </summary>
-    //    [MessagePackMember(4)]
-    //    public ErrorCode? ErrorCode { get; }
-
-    //    [MessagePackIgnore]
-    //    public bool IsSuccessStatusCode => (ErrorCode == null);
-
-    //    // ctor
-    //    public Response(int uid, MessagePackObject result, string error, ErrorCode? errorCode)
-    //    {
-    //        Uid = uid;
-    //        Result = result;
-    //        Error = error;
-    //        ErrorCode = errorCode;
-    //    }
-
-    //    /// <summary>
-    //    /// Бросает исключение если запрос был завершен с ошибкой.
-    //    /// </summary>
-    //    /// <exception cref="RemoteException"/>
-    //    public void EnsureSuccessStatusCode()
-    //    {
-    //        if(!IsSuccessStatusCode)
-    //        {
-    //            if(Error != null)
-    //                throw new RemoteException(Error, ErrorCode.Value);
-
-    //            throw new RemoteException($"ErrorCode: {ErrorCode.Value}", ErrorCode.Value);
-    //        }
-    //    }
-    //}
 }
