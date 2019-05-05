@@ -19,7 +19,7 @@ namespace EfProvider
 
         static CustomEfDataConnection()
         {
-            EnumFluentProvider.MapEnum();
+            EnumFluentConfig.MapEnum();
         }
 
         public CustomEfDataConnection(IModelStore modelStore, [NotNull] DbContextOptions options) : base(options)
@@ -57,20 +57,17 @@ namespace EfProvider
         {
             base.OnModelCreating(builder);
 
-            var sw = Stopwatch.StartNew();
-
             foreach (var item in _modeTypes)
             {
                 builder.Entity(item);
             }
 
             builder.HasPostgresExtension("uuid-ossp");
-            Trace.WriteLine("OnModelCreating: " + sw.Elapsed);
 
-            EnumFluentProvider.Config(builder);
-            IndexFluentProvider.Config(builder);
-            ForeignKeysFluentProvider.Config(builder);
-            DataSeedingProvider.Config(builder);
+            EnumFluentConfig.Config(builder);
+            IndexFluentConfig.Config(builder);
+            ForeignKeysFluentConfig.Config(builder);
+            DataSeedingConfig.Config(builder);
         }
 
         private static class DateTimeMapper

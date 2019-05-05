@@ -2,7 +2,7 @@
 
 namespace EfProvider.Config
 {
-    internal static class ForeignKeysFluentProvider
+    internal static class IndexFluentConfig
     {
         public static void Config(ModelBuilder builder)
         {

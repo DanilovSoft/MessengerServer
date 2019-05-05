@@ -7,7 +7,7 @@ using System;
 
 namespace EfProvider.Config
 {
-    internal static class EnumFluentProvider
+    internal static class EnumFluentConfig
     {
         public static void MapEnum()
         {
