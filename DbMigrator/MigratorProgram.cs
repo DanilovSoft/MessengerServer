@@ -48,9 +48,9 @@ namespace DbMigrator
         }
     }
 
-    public class DbContextFactory : IDesignTimeDbContextFactory<DbContextFactory.MigratorEfDataConnection>
+    public class DbContextFactory : IDesignTimeDbContextFactory<DbContextFactory.MigratorEfDbContext>
     {
-        public MigratorEfDataConnection CreateDbContext(string[] args)
+        public MigratorEfDbContext CreateDbContext(string[] args)
         {
             var configurationBuilder = new ConfigurationBuilder()
                 .SetBasePath(MigratorProgram.BaseDirectory ?? Directory.GetCurrentDirectory())
@@ -69,14 +69,14 @@ namespace DbMigrator
             var dbContextOptions = new DbContextOptionsBuilder()
                 .UseNpgsql(configuration["DbConnection"], o => o.MigrationsAssembly("DbMigrator")).Options;
 
-            return new MigratorEfDataConnection(modelStore, dbContextOptions, loggerFactory);
+            return new MigratorEfDbContext(modelStore, dbContextOptions, loggerFactory);
         }
 
-        public class MigratorEfDataConnection : CustomEfDataConnection
+        public class MigratorEfDbContext : CustomEfDbContext
         {
             private readonly ILoggerFactory _loggerFactory;
 
-            public MigratorEfDataConnection(IModelStore modelStore, [NotNull] DbContextOptions options,
+            public MigratorEfDbContext(IModelStore modelStore, [NotNull] DbContextOptions options,
                 ILoggerFactory loggerFactory) : base(modelStore, options)
             {
                 _loggerFactory = loggerFactory;

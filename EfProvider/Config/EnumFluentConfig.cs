@@ -1,5 +1,4 @@
 ﻿using Microsoft.EntityFrameworkCore;
-using Npgsql;
 using System.Linq;
 using System.Text.RegularExpressions;
 using System;

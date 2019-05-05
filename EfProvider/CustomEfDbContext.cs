@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
@@ -9,20 +8,19 @@ using JetBrains.Annotations;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.EntityFrameworkCore.Metadata.Internal;
-using Npgsql;
 
 namespace EfProvider
 {
-    public class CustomEfDataConnection : DbContext
+    public class CustomEfDbContext : DbContext
     {
         private readonly IEnumerable<Type> _modeTypes;
 
-        static CustomEfDataConnection()
+        static CustomEfDbContext()
         {
             EnumFluentConfig.MapEnum();
         }
 
-        public CustomEfDataConnection(IModelStore modelStore, [NotNull] DbContextOptions options) : base(options)
+        public CustomEfDbContext(IModelStore modelStore, [NotNull] DbContextOptions options) : base(options)
         {
             _modeTypes = modelStore.GetModels();
         }

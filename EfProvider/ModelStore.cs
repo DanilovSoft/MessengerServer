@@ -17,7 +17,7 @@ namespace EfProvider
             var domainAssembly = Assembly.Load(new AssemblyName("DbModel"));
 
             _modelTypes = domainAssembly.GetExportedTypes()
-                .Where(x => x.GetInterfaces().Any(type => type == typeof(IDbEntity)))
+                .Where(x => x.GetInterfaces().Any(type => type == typeof(IEntity)))
                 .ToArray();
         }
 
