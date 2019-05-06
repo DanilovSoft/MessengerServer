@@ -9,5 +9,6 @@ namespace wRPC.Contract
     public interface IHomeController
     {
         Task SendMessage(string message, int userId);
+        Task<ChatUser[]> GetConversations();
     }
 }

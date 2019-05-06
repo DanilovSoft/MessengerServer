@@ -8,7 +8,7 @@ namespace MessengerServer
 {
     class Program
     {
-        private const int Port = 1234;
+        private const int Port = 65125;
 
         static void Main()
         {

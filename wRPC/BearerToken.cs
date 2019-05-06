@@ -1,19 +1,20 @@
-﻿using MsgPack.Serialization;
+﻿using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
 using System.Text;
 
 namespace wRPC
 {
+    [JsonObject]
     public class BearerToken
     {
-        [MessagePackMember(1)]
+        [JsonProperty]
         public byte[] Token;
 
         /// <summary>
         /// Время актуальности токена в секундах.
         /// </summary>
-        [MessagePackMember(2)]
+        [JsonProperty]
         public TimeSpan ExpiresAt;
     }
 }

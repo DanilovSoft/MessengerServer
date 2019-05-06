@@ -1,5 +1,4 @@
 ﻿using Contract;
-using MsgPack.Serialization;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -84,7 +83,6 @@ namespace wRPC
                             throw;
                         }
 
-                        _connected = true;
                         ThreadPool.UnsafeQueueUserWorkItem(StartReceivingLoop, ws);
 
                         try
@@ -97,6 +95,8 @@ namespace wRPC
                             Debug.WriteLine(ex);
                             throw;
                         }
+
+                        _connected = true;
                     }
                 }
             }
