@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
-using DbModel;
 using DbModel.Store;
 using EfProvider.Config;
 using JetBrains.Annotations;
@@ -54,13 +53,13 @@ namespace EfProvider
         {
             base.OnConfiguring(optionsBuilder);
             optionsBuilder.ReplaceService<IEntityMaterializerSource, MyEntityMaterializerSource>();
-            optionsBuilder.UseLoggerFactory(_myLoggerFactory); // Warning: Do not create a new ILoggerFactory instance each time
+            optionsBuilder.UseLoggerFactory(_myLoggerFactory); 
         }
 
         protected override void OnModelCreating(ModelBuilder builder)
         {
             base.OnModelCreating(builder);
-            
+
             builder.HasPostgresExtension("uuid-ossp");
             builder.HasPostgresExtension("pgcrypto");
 
@@ -73,6 +72,7 @@ namespace EfProvider
             IndexFluentConfig.Config(builder);
             ForeignKeysFluentConfig.Config(builder);
             DataSeedingConfig.Config(builder);
+            PostgresEfExtensions.Config(builder);
         }
 
         private static class DateTimeMapper
@@ -123,12 +123,6 @@ namespace EfProvider
 
                 return base.CreateReadValueExpression(valueBuffer, type, index, property);
             }
-        }
-        
-        [DbFunction("crypt")]
-        public static string Crypt(string password, string salt)
-        {
-            throw new NotImplementedException();
         }
     }
 }

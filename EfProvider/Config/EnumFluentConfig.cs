@@ -2,7 +2,7 @@
 using System.Linq;
 using System.Text.RegularExpressions;
 using System;
-using DbModel.Base;
+using DbModel.DbTypes;
 using Npgsql;
 
 

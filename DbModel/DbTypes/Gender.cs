@@ -1,4 +1,4 @@
-namespace DbModel.Base
+namespace DbModel.DbTypes
 {
     public enum Gender
     {
