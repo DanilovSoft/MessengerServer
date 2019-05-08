@@ -64,39 +64,37 @@ namespace wRPC
             {
                 return;
             }
-            else
+
+            using (await _asyncLock.LockAsync().ConfigureAwait(false))
             {
-                using (await _asyncLock.LockAsync().ConfigureAwait(false))
+                if (!_connected)
                 {
-                    if (!_connected)
+                    // Копия ссылки.
+                    var ws = (MyClientWebSocket)WebSocket;
+
+                    try
                     {
-                        // Копия ссылки.
-                        var ws = (MyClientWebSocket)WebSocket;
+                        await ws.ConnectAsync(_uri).ConfigureAwait(false);
+                    }
+                    catch (Exception ex)
+                    {
+                        Debug.WriteLine(ex);
+                        ws.Dispose();
+                        throw;
+                    }
 
-                        try
-                        {
-                            await ws.ConnectAsync(_uri).ConfigureAwait(false);
-                        }
-                        catch (Exception ex)
-                        {
-                            Debug.WriteLine(ex);
-                            ws.Dispose();
-                            throw;
-                        }
+                    _connected = true;
+                    ThreadPool.UnsafeQueueUserWorkItem(StartReceivingLoop, ws);
 
-                        _connected = true;
-                        ThreadPool.UnsafeQueueUserWorkItem(StartReceivingLoop, ws);
-
-                        try
-                        {
-                            await AuthorizeAsync(ws).ConfigureAwait(false);
-                        }
-                        catch (Exception ex)
+                    try
+                    {
+                        await AuthorizeAsync(ws).ConfigureAwait(false);
+                    }
+                    catch (Exception ex)
                         // Обрыв соединения.
-                        {
-                            Debug.WriteLine(ex);
-                            throw;
-                        }
+                    {
+                        Debug.WriteLine(ex);
+                        throw;
                     }
                 }
             }

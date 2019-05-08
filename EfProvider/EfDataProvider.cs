@@ -255,7 +255,7 @@ namespace EfProvider
         {
             try
             {
-                return await func();
+                return await func().ConfigureAwait(false);
             }
             catch (Exception exception) when (exception.InnerException is PostgresException ex)
             {

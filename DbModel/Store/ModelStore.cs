@@ -2,10 +2,10 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
-using JetBrains.Annotations;
 using DbModel.Base;
+using JetBrains.Annotations;
 
-namespace EfProvider
+namespace DbModel.Store
 {
     [UsedImplicitly]
     public class ModelStore : IModelStore
@@ -14,10 +14,11 @@ namespace EfProvider
 
         public ModelStore()
         {
-            var domainAssembly = Assembly.Load(new AssemblyName("DbModel"));
+            var domainAssembly = Assembly.GetExecutingAssembly();
 
             _modelTypes = domainAssembly.GetExportedTypes()
-                .Where(x => x.GetInterfaces().Any(type => type == typeof(IEntity)))
+                .Where(x => x.IsClass || x.IsValueType)
+                .Where(x => x.GetInterfaces().Any(type => type == typeof(IDbEntity)))
                 .ToArray();
         }
 

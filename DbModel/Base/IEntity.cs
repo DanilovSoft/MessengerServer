@@ -1,11 +1,16 @@
 ﻿using System;
+
 namespace DbModel.Base
 {
-    public interface IEntity
+    public interface IDbEntity
     {
     }
     
-    public interface IEntity<out TKey> : IEntity where TKey : IComparable
+    public interface IEntity : IDbEntity
+    {
+    }
+
+    public interface IEntity<out TKey> : IDbEntity where TKey : IComparable
     {
         TKey Id { get; }
     }

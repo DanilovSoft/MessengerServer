@@ -1,6 +1,8 @@
 ﻿using System;
 using System.IO;
 using System.Linq;
+using DbModel;
+using DbModel.Store;
 using EfProvider;
 using JetBrains.Annotations;
 using Microsoft.EntityFrameworkCore;

@@ -1,4 +1,5 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿using DbModel;
+using Microsoft.EntityFrameworkCore;
 
 namespace EfProvider.Config
 {
@@ -6,6 +7,12 @@ namespace EfProvider.Config
     {
         public static void Config(ModelBuilder builder)
         {
+            builder.Entity<UserDb>()
+                .HasOne(d => d.Profile)
+                .WithOne(u => u.User)
+                .HasForeignKey<UserProfileDb>(d => d.Id)
+                .OnDelete(DeleteBehavior.Restrict);
+
         }
     }
 }

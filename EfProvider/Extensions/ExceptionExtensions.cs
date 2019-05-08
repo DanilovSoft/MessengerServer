@@ -13,15 +13,15 @@ namespace EfProvider.Extensions
 
             if (ex.SqlState == "23505")
             {
-                throw new ObjectAlreadyExistsException(message, ex);
+                return new ObjectAlreadyExistsException(message, ex);
             }
 
             if (ex.SqlState == _concurrentState)
             {
-                throw new ConcurrentModifyException(message, ex);
+                return new ConcurrentModifyException(message, ex);
             }
 
-            throw new PostgreSqlException(ex.SqlState, message, ex);
+            return new PostgreSqlException(ex.SqlState, message, ex);
         }
 
         internal static bool IsConcurrentModifyException(this Exception ex)

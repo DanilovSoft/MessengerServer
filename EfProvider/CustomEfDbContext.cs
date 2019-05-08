@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
+using DbModel;
+using DbModel.Store;
 using EfProvider.Config;
 using JetBrains.Annotations;
 using Microsoft.EntityFrameworkCore;
@@ -55,12 +57,13 @@ namespace EfProvider
         {
             base.OnModelCreating(builder);
 
+            builder.HasPostgresExtension("uuid-ossp");
+            builder.HasPostgresExtension("pgcrypto");
+
             foreach (var item in _modeTypes)
             {
                 builder.Entity(item);
             }
-
-            builder.HasPostgresExtension("uuid-ossp");
 
             EnumFluentConfig.Config(builder);
             IndexFluentConfig.Config(builder);

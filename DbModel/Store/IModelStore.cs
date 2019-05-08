@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 
-namespace EfProvider
+namespace DbModel.Store
 {
     public interface IModelStore
     {
