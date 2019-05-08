@@ -7,6 +7,8 @@ using System.Collections.Generic;
 using System.Threading;
 using wRPC;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Configuration;
+using System.IO;
 
 namespace MessengerServer
 {
@@ -21,11 +23,21 @@ namespace MessengerServer
             {
                 if (createdNew)
                 {
+                    var configurationBuilder = new ConfigurationBuilder()
+                        .SetBasePath(Directory.GetCurrentDirectory())
+                        .AddJsonFile("appsettings.json", optional: true, reloadOnChange: true);
+
+                    IConfigurationRoot configuration = configurationBuilder.Build();
+                    
                     using (var listener = new Listener(Port))
                     {
                         var modelStore = new ModelStore();
                         var builder = new DbContextOptionsBuilder<CustomEfDbContext>();
-                        builder.UseNpgsql("Server=10.0.0.101;Port=5432;User Id=postgres;Password=pizdec;Database=MessengerServer;Pooling=true;MinPoolSize=15;MaxPoolSize=20;CommandTimeout=20;Timeout=20");
+                        builder.UseNpgsql(configuration.GetConnectionString("Default"));
+
+                        var context = new CustomEfDbContext(modelStore, builder.Options);
+                        var provider = new EfDataProvider(context);
+
 
                         listener.IoC.AddScoped<ISql, Sql>();
 
