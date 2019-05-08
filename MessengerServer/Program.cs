@@ -1,8 +1,12 @@
-﻿using MessengerServer.Controllers;
+﻿using DbModel.Store;
+using EfProvider;
+using MessengerServer.Controllers;
+using Microsoft.EntityFrameworkCore;
 using System;
 using System.Collections.Generic;
 using System.Threading;
 using wRPC;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace MessengerServer
 {
@@ -19,7 +23,11 @@ namespace MessengerServer
                 {
                     using (var listener = new Listener(Port))
                     {
-                        ///listener.IOC.Bind<ISqlContext>().To<SqlContext>();
+                        var modelStore = new ModelStore();
+                        var builder = new DbContextOptionsBuilder<CustomEfDbContext>();
+                        builder.UseNpgsql("Server=10.0.0.101;Port=5432;User Id=postgres;Password=pizdec;Database=MessengerServer;Pooling=true;MinPoolSize=15;MaxPoolSize=20;CommandTimeout=20;Timeout=20");
+
+                        listener.IoC.AddScoped<ISql, Sql>();
 
                         Console.WriteLine("Ожидание подключений...");
                         listener.StartAccept();
@@ -29,5 +37,18 @@ namespace MessengerServer
                 }
             }
         }
+    }
+
+    class Sql : ISql, IDisposable
+    {
+        public void Dispose()
+        {
+            
+        }
+    }
+
+    interface ISql
+    {
+
     }
 }

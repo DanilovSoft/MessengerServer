@@ -24,19 +24,21 @@ namespace wRPC
         private volatile bool _connected;
         public byte[] BearerToken { get; set; }
 
-        public ClientContext(Assembly callingAssembly, Uri uri) : base(callingAssembly)
+        internal ClientContext(Assembly callingAssembly, Uri uri) : base(callingAssembly)
         {
             _uri = uri;
             _asyncLock = new AsyncLock();
-
             WebSocket = new MyClientWebSocket();
-            WebSocket.Disconnected += WebSocket_Disconnected;
+            WebSocket.Disconnected += OnDisconnected;
         }
 
-        private async void WebSocket_Disconnected(object sender, EventArgs e)
+        /// <summary>
+        /// Событие — обрыв сокета.
+        /// </summary>
+        private async void OnDisconnected(object sender, EventArgs e)
         {
             var ws = (MyClientWebSocket)sender;
-            ws.Disconnected -= WebSocket_Disconnected;
+            ws.Disconnected -= OnDisconnected;
             ws.Dispose();
 
             if (_connected)
@@ -55,7 +57,6 @@ namespace wRPC
         /// <summary>
         /// Выполнить подключение сокета если еще не подключен.
         /// </summary>
-        /// <returns></returns>
         internal async Task ConnectIfNeededAsync()
         {
             // Fast-path.
@@ -104,7 +105,7 @@ namespace wRPC
 
         private async Task AuthorizeAsync(WebSocket ws)
         {
-            var token = BearerToken;
+            byte[] token = BearerToken;
             if (token != null)
             {
                 var message = new Message("Auth/AuthorizeToken")

@@ -1,7 +1,6 @@
 ﻿using Contract;
 using Dapper;
 using Microsoft.EntityFrameworkCore;
-using Ninject.Parameters;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -21,6 +20,7 @@ namespace MessengerServer.Controllers
     {
         public AuthController()
         {
+            
         }
 
         [AllowAnonymous]
@@ -32,7 +32,7 @@ namespace MessengerServer.Controllers
 
             var context = new CustomEfDbContext(modelStore, builder.Options);
             var provider = new EfDataProvider(context);
-
+            
             var user = await provider.Get<UserDb>()
                 .Where(x => x.NormalLogin == login.ToLower() &&
                             x.Pasword == CustomEfDbContext.Crypt(password, x.Pasword))

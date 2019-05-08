@@ -1,6 +1,6 @@
 ﻿using Contract;
 using DanilovSoft.WebSocket;
-using Ninject;
+using Microsoft.Extensions.DependencyInjection;
 using System;
 using System.Buffers;
 using System.Collections.Concurrent;
@@ -31,13 +31,13 @@ namespace wRPC
         ///// </summary>
         //private readonly SafeList<Context> _contextList = new SafeList<Context>();
         private bool _disposed;
-        public StandardKernel IoC { get; }
+        public ServiceCollection IoC { get; }
         private int _startAccept;
 
         // ctor.
         public Listener(int port)
         {
-            IoC = new StandardKernel();
+            IoC = new ServiceCollection();
             _wsServ = new WebSocketServer();
             _wsServ.Bind(new IPEndPoint(IPAddress.Any, port));
             _wsServ.Connected += Listener_OnConnected;
@@ -45,8 +45,12 @@ namespace wRPC
             // Контроллеры будем искать в сборке которая вызвала текущую функцию.
             var controllersAssembly = Assembly.GetCallingAssembly();
             Controllers = GlobalVars.FindAllControllers(controllersAssembly);
+
             foreach (Type controllerType in Controllers.Values)
-                IoC.Bind(controllerType).ToSelf();
+            {
+                IoC.AddScoped(controllerType);
+                //IoC.Bind(controllerType).ToSelf();
+            }
         }
 
         public void StartAccept()
@@ -74,7 +78,7 @@ namespace wRPC
                 _disposed = true;
                 _wsServ.Connected -= Listener_OnConnected;
                 _wsServ.Dispose();
-                IoC.Dispose();
+                //IoC.Dispose();
             }
         }
     }
