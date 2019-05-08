@@ -11,7 +11,7 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace DbMigrator.Migrations
 {
     [DbContext(typeof(DbContextFactory.MigratorEfDbContext))]
-    [Migration("20190508132610_Initial")]
+    [Migration("20190508142249_Initial")]
     partial class Initial
     {
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -27,7 +27,7 @@ namespace DbMigrator.Migrations
 
             modelBuilder.Entity("DbModel.UserDb", b =>
                 {
-                    b.Property<Guid>("Id")
+                    b.Property<int>("Id")
                         .ValueGeneratedOnAdd();
 
                     b.Property<DateTime>("CreatedUtc");
@@ -35,11 +35,12 @@ namespace DbMigrator.Migrations
                     b.Property<string>("Login")
                         .IsRequired();
 
-                    b.Property<string>("Pasword")
+                    b.Property<string>("NormalLogin")
                         .IsRequired();
 
-                    b.Property<string>("Salt")
-                        .IsRequired();
+                    b.Property<string>("Pasword")
+                        .IsRequired()
+                        .HasMaxLength(60);
 
                     b.Property<DateTime>("UpdatedUtc");
 
@@ -47,7 +48,7 @@ namespace DbMigrator.Migrations
 
                     b.HasIndex("CreatedUtc");
 
-                    b.HasIndex("Login")
+                    b.HasIndex("NormalLogin")
                         .IsUnique();
 
                     b.HasIndex("UpdatedUtc");
@@ -57,7 +58,7 @@ namespace DbMigrator.Migrations
 
             modelBuilder.Entity("DbModel.UserProfileDb", b =>
                 {
-                    b.Property<Guid>("Id");
+                    b.Property<int>("Id");
 
                     b.Property<Gender>("Gender");
 

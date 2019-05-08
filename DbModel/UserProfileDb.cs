@@ -1,4 +1,3 @@
-using System;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using DbModel.Base;
@@ -6,10 +5,10 @@ using DbModel.Base;
 namespace DbModel
 {
     [Table("UserProfile")]
-    public class UserProfileDb : IEntity<Guid>
+    public class UserProfileDb : IEntity<int>
     {
         [Key]
-        public Guid Id { get; set; }
+        public int Id { get; set; }
         
         public Gender Gender { get; set; }
         

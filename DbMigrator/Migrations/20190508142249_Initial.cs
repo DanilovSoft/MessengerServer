@@ -1,6 +1,7 @@
 ﻿using System;
 using DbModel.Base;
 using Microsoft.EntityFrameworkCore.Migrations;
+using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
 namespace DbMigrator.Migrations
 {
@@ -17,12 +18,13 @@ namespace DbMigrator.Migrations
                 name: "User",
                 columns: table => new
                 {
-                    Id = table.Column<Guid>(nullable: false),
+                    Id = table.Column<int>(nullable: false)
+                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.SerialColumn),
                     CreatedUtc = table.Column<DateTime>(nullable: false),
                     UpdatedUtc = table.Column<DateTime>(nullable: false),
                     Login = table.Column<string>(nullable: false),
-                    Pasword = table.Column<string>(nullable: false),
-                    Salt = table.Column<string>(nullable: false)
+                    NormalLogin = table.Column<string>(nullable: false),
+                    Pasword = table.Column<string>(maxLength: 60, nullable: false)
                 },
                 constraints: table =>
                 {
@@ -33,7 +35,7 @@ namespace DbMigrator.Migrations
                 name: "UserProfile",
                 columns: table => new
                 {
-                    Id = table.Column<Guid>(nullable: false),
+                    Id = table.Column<int>(nullable: false),
                     Gender = table.Column<Gender>(nullable: false)
                 },
                 constraints: table =>
@@ -53,9 +55,9 @@ namespace DbMigrator.Migrations
                 column: "CreatedUtc");
 
             migrationBuilder.CreateIndex(
-                name: "IX_User_Login",
+                name: "IX_User_NormalLogin",
                 table: "User",
-                column: "Login",
+                column: "NormalLogin",
                 unique: true);
 
             migrationBuilder.CreateIndex(

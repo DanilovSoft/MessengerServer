@@ -10,12 +10,15 @@ using JetBrains.Annotations;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.EntityFrameworkCore.Metadata.Internal;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Debug;
 
 namespace EfProvider
 {
     public class CustomEfDbContext : DbContext
     {
         private readonly IEnumerable<Type> _modeTypes;
+        public static readonly LoggerFactory _myLoggerFactory = new LoggerFactory(new[] {new DebugLoggerProvider()});
 
         static CustomEfDbContext()
         {
@@ -51,12 +54,13 @@ namespace EfProvider
         {
             base.OnConfiguring(optionsBuilder);
             optionsBuilder.ReplaceService<IEntityMaterializerSource, MyEntityMaterializerSource>();
+            optionsBuilder.UseLoggerFactory(_myLoggerFactory); // Warning: Do not create a new ILoggerFactory instance each time
         }
 
         protected override void OnModelCreating(ModelBuilder builder)
         {
             base.OnModelCreating(builder);
-
+            
             builder.HasPostgresExtension("uuid-ossp");
             builder.HasPostgresExtension("pgcrypto");
 
@@ -119,6 +123,12 @@ namespace EfProvider
 
                 return base.CreateReadValueExpression(valueBuffer, type, index, property);
             }
+        }
+        
+        [DbFunction("crypt")]
+        public static string Crypt(string password, string salt)
+        {
+            throw new NotImplementedException();
         }
     }
 }

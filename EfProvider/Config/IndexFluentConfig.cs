@@ -7,7 +7,7 @@ namespace EfProvider.Config
     {
         public static void Config(ModelBuilder builder)
         {
-            builder.Entity<UserDb>().HasIndex(x => new {x.Login}).IsUnique();
+            builder.Entity<UserDb>().HasIndex(x => new {x.NormalLogin}).IsUnique();
             builder.Entity<UserDb>().HasIndex(x => new {x.CreatedUtc}).IsUnique(false);
             builder.Entity<UserDb>().HasIndex(x => new {x.UpdatedUtc}).IsUnique(false);
         }

@@ -2,15 +2,12 @@
 
 namespace DbModel.Base
 {
-    public interface IDbEntity
-    {
-    }
     
-    public interface IEntity : IDbEntity
+    public interface IEntity 
     {
     }
 
-    public interface IEntity<out TKey> : IDbEntity where TKey : IComparable
+    public interface IEntity<out TKey> : IEntity where TKey : IComparable
     {
         TKey Id { get; }
     }
