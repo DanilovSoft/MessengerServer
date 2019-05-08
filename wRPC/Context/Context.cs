@@ -331,6 +331,9 @@ namespace wRPC
             }
         }
 
+        /// <summary>
+        /// Возвращает инкапсулированный в Task тип результата функции.
+        /// </summary>
         private static Type GetActionReturnType(MethodInfo method)
         {
             // Если возвращаемый тип функции — Task.

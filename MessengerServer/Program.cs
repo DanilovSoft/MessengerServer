@@ -34,12 +34,9 @@ namespace MessengerServer
                         var modelStore = new ModelStore();
                         var builder = new DbContextOptionsBuilder<CustomEfDbContext>();
                         builder.UseNpgsql(configuration.GetConnectionString("Default"));
-
-                        var context = new CustomEfDbContext(modelStore, builder.Options);
-                        var provider = new EfDataProvider(context);
-
-
-                        listener.IoC.AddScoped<ISql, Sql>();
+                        
+                        listener.IoC.AddScoped(x => new CustomEfDbContext(modelStore, builder.Options));
+                        listener.IoC.AddScoped<IDataProvider, EfDataProvider>();
 
                         Console.WriteLine("Ожидание подключений...");
                         listener.StartAccept();
@@ -49,18 +46,5 @@ namespace MessengerServer
                 }
             }
         }
-    }
-
-    class Sql : ISql, IDisposable
-    {
-        public void Dispose()
-        {
-            
-        }
-    }
-
-    interface ISql
-    {
-
     }
 }
