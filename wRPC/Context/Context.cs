@@ -10,8 +10,6 @@ using System.Reflection;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
-using MsgPack.Serialization;
-using MsgPack;
 using System.Diagnostics;
 using Ninject;
 using System.Collections.Concurrent;
@@ -49,8 +47,9 @@ namespace wRPC
             // Словарь с найденными контроллерами в вызывающей сборке.
             Controllers = GlobalVars.FindAllControllers(callingAssembly);
 
+            var settings = new Ninject.NinjectSettings() { LoadExtensions = false };
             // У каждого клиента свой IoC.
-            IoC = new StandardKernel();
+            IoC = new StandardKernel(settings);
 
             foreach (Type controllerType in Controllers.Values)
                 IoC.Bind(controllerType).ToSelf();
@@ -183,9 +182,12 @@ namespace wRPC
             // Ожидаем результат от потока поторый читает из сокета.
             Message response = await tcs;
 
+            // Исключение если запрос завершен с ошибкой.
             response.EnsureSuccessStatusCode();
 
+            // Десериализуем результат.
             object rawResult = response.Result?.ToObject(resultType);
+
             return rawResult;
         }
 

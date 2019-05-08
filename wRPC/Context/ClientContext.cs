@@ -64,37 +64,40 @@ namespace wRPC
             {
                 return;
             }
-
-            using (await _asyncLock.LockAsync().ConfigureAwait(false))
+            else
             {
-                if (!_connected)
+                using (await _asyncLock.LockAsync().ConfigureAwait(false))
                 {
-                    // Копия ссылки.
-                    var ws = (MyClientWebSocket)WebSocket;
-
-                    try
+                    if (!_connected)
                     {
-                        await ws.ConnectAsync(_uri).ConfigureAwait(false);
-                    }
-                    catch (Exception ex)
-                    {
-                        Debug.WriteLine(ex);
-                        ws.Dispose();
-                        throw;
-                    }
+                        // Копия ссылки.
+                        var ws = (MyClientWebSocket)WebSocket;
 
-                    _connected = true;
-                    ThreadPool.UnsafeQueueUserWorkItem(StartReceivingLoop, ws);
+                        try
+                        {
+                            await ws.ConnectAsync(_uri).ConfigureAwait(false);
+                        }
+                        catch (Exception ex)
+                        {
+                            Debug.WriteLine(ex);
+                            ws.Dispose();
+                            throw;
+                        }
 
-                    try
-                    {
-                        await AuthorizeAsync(ws).ConfigureAwait(false);
-                    }
-                    catch (Exception ex)
+                        ThreadPool.UnsafeQueueUserWorkItem(StartReceivingLoop, ws);
+
+                        try
+                        {
+                            await AuthorizeAsync(ws).ConfigureAwait(false);
+                        }
+                        catch (Exception ex)
                         // Обрыв соединения.
-                    {
-                        Debug.WriteLine(ex);
-                        throw;
+                        {
+                            Debug.WriteLine(ex);
+                            throw;
+                        }
+
+                        _connected = true;
                     }
                 }
             }

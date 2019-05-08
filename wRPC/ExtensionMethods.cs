@@ -1,6 +1,4 @@
 ﻿using Contract;
-using MsgPack;
-using MsgPack.Serialization;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Bson;
 using System;
@@ -14,12 +12,12 @@ namespace wRPC
     {
         public static Message ErrorResponse(this Message request, RemoteException exception)
         {
-            return new Message(request.Uid, MessagePackObject.Nil, exception.Message, exception.ErrorCode);
+            return new Message(request.Uid, result: null, exception.Message, exception.ErrorCode);
         }
 
         public static Message ErrorResponse(this Message request, string errorMessage, ErrorCode errorCode)
         {
-            return new Message(request.Uid, MessagePackObject.Nil, errorMessage, errorCode);
+            return new Message(request.Uid, result: null, errorMessage, errorCode);
         }
 
         public static ArrayPool Serialize(this Message request, out int size)

@@ -19,39 +19,9 @@ namespace DynamicMethodsLib
             Debug.Assert(_invokeMethod != null);
         }
 
-#if NET471 && DECOMPILE
-
-        private static AssemblyBuilder DefineDynamicAssembly(out string name)
+        private static AssemblyBuilder DefineDynamicAssembly(string name)
         {
-            //var ctor = typeof(AllowPartiallyTrustedCallersAttribute).GetConstructor(Type.EmptyTypes);
-            //var allowPartiallyTrustedCallersAttribute = new CustomAttributeBuilder(ctor, new object[] { });
-
-            //ctor = typeof(SecurityTransparentAttribute).GetConstructor(Type.EmptyTypes);
-            //var securityTransparentAttribute = new CustomAttributeBuilder(ctor, new object[] { });
-
-            name = Guid.NewGuid().ToString();
-            var assemblyName = new AssemblyName(Guid.NewGuid().ToString());
-            var assemblyBuilder = AssemblyBuilder.DefineDynamicAssembly(assemblyName, AssemblyBuilderAccess.RunAndSave);
-
-            return assemblyBuilder;
-        }
-
-        private static ModuleBuilder DefineDynamicModule(AssemblyBuilder assembly, string fileName)
-        {
-            return assembly.DefineDynamicModule("Module", fileName);
-        }
-#else
-        private static AssemblyBuilder DefineDynamicAssembly(out string name)
-        {
-            var ctor = typeof(AllowPartiallyTrustedCallersAttribute).GetConstructor(Type.EmptyTypes);
-            //var allowPartiallyTrustedCallersAttribute = new CustomAttributeBuilder(ctor, new object[] { });
-
-            //ctor = typeof(SecurityTransparentAttribute).GetConstructor(Type.EmptyTypes);
-            //var securityTransparentAttribute = new CustomAttributeBuilder(ctor, new object[] { });
-
-            name = Guid.NewGuid().ToString();
-            var assembly = AssemblyBuilder.DefineDynamicAssembly(new AssemblyName(name), AssemblyBuilderAccess.Run);
-
+            AssemblyBuilder assembly = AssemblyBuilder.DefineDynamicAssembly(new AssemblyName(name), AssemblyBuilderAccess.Run);
             return assembly;
         }
 
@@ -59,10 +29,11 @@ namespace DynamicMethodsLib
         {
             return assembly.DefineDynamicModule("Module");
         }
-#endif
+
         public static TIface CreateProxy<TIface>(T source = default, object instance = default)
         {
-            AssemblyBuilder assemblyBuilder = DefineDynamicAssembly(out string assemblyName);
+            string assemblyName = typeof(TIface).Name + "_" + Guid.NewGuid().ToString();
+            AssemblyBuilder assemblyBuilder = DefineDynamicAssembly(assemblyName);
             ModuleBuilder moduleBuilder = DefineDynamicModule(assemblyBuilder, assemblyName + ".dll");
             string className = typeof(T).Name + "_" + typeof(TIface).Name;
             TypeBuilder classType = moduleBuilder.DefineType(className, TypeAttributes.Class | TypeAttributes.Public, parent: typeof(T));

@@ -1,11 +1,11 @@
-﻿using System;
+﻿using Contract;
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using wRPC;
-using wRPC.Contract;
 
 namespace MessengerServer.Controllers
 {
@@ -14,6 +14,12 @@ namespace MessengerServer.Controllers
         public HomeController()
         {
            
+        }
+
+        // Возвращает список контактов пользователя.
+        public Task<ChatUser[]> GetConversations()
+        {
+            return Task.FromResult(Array.Empty<ChatUser>());
         }
 
         public Task SendMessage(string message, int userId)

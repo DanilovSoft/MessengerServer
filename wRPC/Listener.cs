@@ -1,6 +1,5 @@
 ﻿using Contract;
 using DanilovSoft.WebSocket;
-using MsgPack.Serialization;
 using Ninject;
 using System;
 using System.Buffers;
