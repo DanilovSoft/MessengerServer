@@ -25,8 +25,7 @@ namespace DbMigrator.Migrations
 
             modelBuilder.Entity("DbModel.UserDb", b =>
                 {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd();
+                    b.Property<int>("Id");
 
                     b.Property<DateTime>("CreatedUtc");
 
