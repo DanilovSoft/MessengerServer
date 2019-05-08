@@ -17,8 +17,7 @@ namespace DbModel.Store
             var domainAssembly = Assembly.GetExecutingAssembly();
 
             _modelTypes = domainAssembly.GetExportedTypes()
-                .Where(x => x.IsClass || x.IsValueType)
-                .Where(x => x.GetInterfaces().Any(type => type == typeof(IEntity)))
+                .Where(x => !x.IsInterface && typeof(IEntity).IsAssignableFrom(x))
                 .ToArray();
         }
 
