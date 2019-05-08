@@ -24,37 +24,19 @@ namespace MessengerServer.Controllers
         [AllowAnonymous]
         public async Task<BearerToken> Authorize(string login, string password)
         {
-            Dto.User user = null;
+            Dto.User user;
             using (var db = new ApplicationContext())
             {
-                var u = await db.Users
+                user = await db.Users
                     .Where(x =>
-                        string.Equals(x.Name, login, StringComparison.InvariantCultureIgnoreCase)
-                        && x.Password == ApplicationContext.Crypt(password, x.Password)
+                        x.Name.ToLower() == login.ToLower() && x.Password == ApplicationContext.Crypt(password, x.Password)
                     )
-                    //.Select(x => new
-                    //{
-                    //    x.Id
-                    //})
+                    .Select(x => new Dto.User
+                    {
+                        Id = x.Id
+                    })
                 .SingleOrDefaultAsync();
-
-                //user = await db.Database.GetDbConnection()
-                //.Query<Dto.User>(@"SELECT ""Id"" FROM ""Users"" WHERE ""Name"" = @Name AND ""Password"" = crypt(@Password, ""Password"")",
-                //    param: new { Name = login, Password = password })
-                //    .ToAsyncEnumerable()
-                //    .FirstOrDefault();
             }
-
-
-//            user = await db.Users.FromSql(@"SELECT ""Id""
-//FROM ""Users""
-//WHERE ""Name"" = {0} AND ""Password"" = crypt({1}, ""Password"")", login, password)
-//    .Select(x => new Dto.User
-//    {
-//        Id = x.Id
-//    })
-//    .FirstOrDefaultAsync();
-//        }
 
             if (user == null)
                 throw new RemoteException("Не верный логин и/или пароль");

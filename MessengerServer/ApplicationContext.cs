@@ -24,7 +24,7 @@ namespace MessengerServer
         {
             optionsBuilder.UseLoggerFactory(_myLoggerFactory); // Warning: Do not create a new ILoggerFactory instance each time
 
-            optionsBuilder.UseNpgsql("Host=10.0.0.101;Port=5432;Database=postgres;Username=postgres;Password=pizdec");
+            optionsBuilder.UseNpgsql("Host=where.now.im;Port=5432;Database=postgres;Username=postgres;Password=pizdec");
         }
     }
 }

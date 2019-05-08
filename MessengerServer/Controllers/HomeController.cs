@@ -6,7 +6,6 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using wRPC;
-using wRPC.Contract;
 
 namespace MessengerServer.Controllers
 {
