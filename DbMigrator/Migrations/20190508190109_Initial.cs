@@ -1,5 +1,5 @@
 ﻿using System;
-using DbModel.Base;
+using DbModel.DbTypes;
 using Microsoft.EntityFrameworkCore.Migrations;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 

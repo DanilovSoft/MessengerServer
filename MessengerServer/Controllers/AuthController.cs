@@ -28,21 +28,22 @@ namespace MessengerServer.Controllers
         {
             var modelStore = new ModelStore();
             var builder = new DbContextOptionsBuilder<CustomEfDbContext>();
-            builder.UseNpgsql("Server=where.now.im;Port=5432;User Id=postgres;Password=pizdec;Database=MessengerServer;Pooling=true;MinPoolSize=15;MaxPoolSize=20;CommandTimeout=20;Timeout=20");
+            builder.UseNpgsql(
+                "Server=where.now.im;Port=5432;User Id=postgres;Password=pizdec;Database=MessengerServer;Pooling=true;MinPoolSize=15;MaxPoolSize=20;CommandTimeout=20;Timeout=20");
 
             var context = new CustomEfDbContext(modelStore, builder.Options);
             var provider = new EfDataProvider(context);
 
             var user = await provider.Get<UserDb>()
                 .Where(x => x.NormalLogin == login.ToLower() &&
-                            x.Pasword == CustomEfDbContext.Crypt(password, x.Pasword))
+                            x.Pasword == PostgresEfExtensions.Crypt(password, x.Pasword))
                 .Select(x => new Dto.User
                 {
                     Id = x.Id,
                     Name = x.Login
                 })
                 .SingleOrDefaultAsync();
-            
+
 
             if (user == null)
                 throw new RemoteException("Не верный логин и/или пароль");
