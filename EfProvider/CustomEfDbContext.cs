@@ -54,7 +54,7 @@ namespace EfProvider
         {
             base.OnConfiguring(optionsBuilder);
             optionsBuilder.ReplaceService<IEntityMaterializerSource, MyEntityMaterializerSource>();
-            optionsBuilder.UseLoggerFactory(_myLoggerFactory); 
+            optionsBuilder.UseLoggerFactory(_myLoggerFactory);
         }
 
         protected override void OnModelCreating(ModelBuilder builder)
@@ -72,6 +72,7 @@ namespace EfProvider
             EnumFluentConfig.Config(builder);
             IndexFluentConfig.Config(builder);
             ForeignKeysFluentConfig.Config(builder);
+            AutoIncrementConfig.Config(builder);
             DataSeedingConfig.Config(builder);
             PostgresEfExtensions.Config(builder);
         }

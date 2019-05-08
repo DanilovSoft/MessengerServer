@@ -1,7 +1,6 @@
 ﻿using System;
 using DbModel.DbTypes;
 using Microsoft.EntityFrameworkCore.Migrations;
-using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
 namespace DbMigrator.Migrations
 {
@@ -18,8 +17,7 @@ namespace DbMigrator.Migrations
                 name: "User",
                 columns: table => new
                 {
-                    Id = table.Column<int>(nullable: false)
-                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.SerialColumn),
+                    Id = table.Column<int>(nullable: false),
                     CreatedUtc = table.Column<DateTime>(nullable: false),
                     UpdatedUtc = table.Column<DateTime>(nullable: false),
                     Login = table.Column<string>(nullable: false),
