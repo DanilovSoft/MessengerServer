@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Contract;
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Text;

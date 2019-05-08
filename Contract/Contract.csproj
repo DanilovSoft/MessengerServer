@@ -1,15 +1,13 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <TargetFramework>netstandard2.0</TargetFramework>
-    <AssemblyName>wRPC.Contract</AssemblyName>
-    <RootNamespace>wRPC.Contract</RootNamespace>
+    <AssemblyName>Contract</AssemblyName>
+    <RootNamespace>Contract</RootNamespace>
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="MsgPack.Cli" Version="1.0.1" />
     <PackageReference Include="Newtonsoft.Json.Bson" Version="1.0.2" />
-    <PackageReference Include="protobuf-net" Version="2.4.0" />
   </ItemGroup>
 
   <ItemGroup>
