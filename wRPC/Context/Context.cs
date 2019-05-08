@@ -11,12 +11,11 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Diagnostics;
-using Ninject;
 using System.Collections.Concurrent;
-using Ninject.Activation.Blocks;
 using DynamicMethodsLib;
 using MyClientWebSocket = DanilovSoft.WebSocket.ClientWebSocket;
 using MyWebSocket = DanilovSoft.WebSocket.WebSocket;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace wRPC
 {
@@ -25,7 +24,7 @@ namespace wRPC
     /// </summary>
     public abstract class Context : IDisposable
     {
-        public StandardKernel IoC { get; }
+        public ServiceCollection IoC { get; }
         /// <summary>
         /// Объект синхронизации для переиспользования прокси интерфейсов.
         /// </summary>
@@ -47,18 +46,18 @@ namespace wRPC
             // Словарь с найденными контроллерами в вызывающей сборке.
             Controllers = GlobalVars.FindAllControllers(callingAssembly);
 
-            var settings = new Ninject.NinjectSettings() { LoadExtensions = false };
             // У каждого клиента свой IoC.
-            IoC = new StandardKernel(settings);
+            IoC = new ServiceCollection();
 
+            // Добавим в IoC все контроллеры сборки.
             foreach (Type controllerType in Controllers.Values)
-                IoC.Bind(controllerType).ToSelf();
+                IoC.AddScoped(controllerType);
         }
 
         /// <summary>
         /// Конструктор сервера.
         /// </summary>
-        internal Context(MyWebSocket clientConnection, StandardKernel ioc)
+        internal Context(MyWebSocket clientConnection, ServiceCollection ioc)
         {
             IoC = ioc;
             WebSocket = clientConnection;
@@ -304,10 +303,10 @@ namespace wRPC
             InvokeMethodPermissionCheck(method, controllerType);
 
             // Блок IoC выполнит Dispose всем созданным экземплярам.
-            using (IActivationBlock iocBlock = IoC.BeginBlock())
+            using (ServiceProvider block = IoC.BuildServiceProvider())
             {
                 // Активируем контроллер через IoC.
-                using (var controller = (Controller)iocBlock.Get(controllerType))
+                using (var controller = (Controller)block.GetRequiredService(controllerType))
                 {
                     // Подготавливаем контроллер.
                     BeforeInvokePrepareController(controller);
@@ -332,6 +331,9 @@ namespace wRPC
             }
         }
 
+        /// <summary>
+        /// Возвращает инкапсулированный в Task тип результата функции.
+        /// </summary>
         private static Type GetActionReturnType(MethodInfo method)
         {
             // Если возвращаемый тип функции — Task.

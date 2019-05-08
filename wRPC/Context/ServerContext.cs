@@ -1,4 +1,4 @@
-﻿using Ninject;
+﻿using Microsoft.Extensions.DependencyInjection;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -36,7 +36,7 @@ namespace wRPC
         public UserConnections Connections { get; private set; }
         private readonly RijndaelEnhanced _jwt;
 
-        public ServerContext(MyWebSocket clientConnection, StandardKernel ioc, Listener listener) : base(clientConnection, ioc)
+        internal ServerContext(MyWebSocket clientConnection, ServiceCollection ioc, Listener listener) : base(clientConnection, ioc)
         {
             Listener = listener;
 
