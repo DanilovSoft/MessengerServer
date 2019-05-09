@@ -1,4 +1,5 @@
 ﻿using Contract;
+using EfProvider;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -11,9 +12,11 @@ namespace MessengerServer.Controllers
 {
     public class HomeController : ServerController, IHomeController
     {
-        public HomeController()
+        private readonly IDataProvider _dataProvider;
+
+        public HomeController(IDataProvider dataProvider)
         {
-           
+            _dataProvider = dataProvider;
         }
 
         // Возвращает список контактов пользователя.

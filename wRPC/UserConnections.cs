@@ -9,7 +9,7 @@ using System.Text;
 namespace wRPC
 {
     /// <summary>
-    /// Потокобезопасный список соединений пользователя.
+    /// Потокобезопасный список авторизованных соединений пользователя.
     /// </summary>
     [DebuggerDisplay("{DebugDisplay,nq}")]
     [DebuggerTypeProxy(typeof(TypeProxy))]

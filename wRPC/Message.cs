@@ -2,9 +2,8 @@
 using Newtonsoft.Json.Linq;
 using System.Diagnostics;
 using System.Runtime.Serialization;
-using wRPC;
 
-namespace Contract
+namespace wRPC
 {
     /// <summary>
     /// Сериализуемое сообщение для удаленного соединения.
@@ -19,6 +18,9 @@ namespace Contract
         private string DebugDisplay => "{" + $"\"{(IsRequest ? ActionName : $"Result: {Result}")}\"" + "}";
         #endregion
 
+        /// <summary>
+        /// <see langword="true"/> если сообщение явлется запросом.
+        /// </summary>
         [JsonProperty(Order = 1, DefaultValueHandling = DefaultValueHandling.IgnoreAndPopulate)]
         public bool IsRequest;
 

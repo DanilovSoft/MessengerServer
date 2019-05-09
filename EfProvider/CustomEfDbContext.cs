@@ -17,12 +17,20 @@ namespace EfProvider
 {
     public class CustomEfDbContext : DbContext
     {
+        public static readonly LoggerFactory _loggerFactory = new LoggerFactory(new[] { new DebugLoggerProvider() });
+        // Выводит логи в Debug.
+        private static readonly DebugLoggerProvider _debugLoggerProvider = new DebugLoggerProvider();
         private readonly IEnumerable<Type> _modeTypes;
-        public static readonly LoggerFactory _myLoggerFactory = new LoggerFactory(new[] {new DebugLoggerProvider()});
 
         static CustomEfDbContext()
         {
             EnumFluentConfig.MapEnum();
+        }
+
+        // ctor.
+        public CustomEfDbContext()
+        {
+
         }
 
         public CustomEfDbContext(IModelStore modelStore, [NotNull] DbContextOptions options) : base(options)
@@ -32,8 +40,11 @@ namespace EfProvider
 
         public void Reset()
         {
-            var entries = ChangeTracker.Entries().Where(e => e.State != EntityState.Unchanged).ToArray();
-            foreach (var entry in entries)
+            EntityEntry[] entries = ChangeTracker.Entries()
+                .Where(e => e.State != EntityState.Unchanged)
+                .ToArray();
+
+            foreach (EntityEntry entry in entries)
             {
                 switch (entry.State)
                 {
@@ -54,7 +65,7 @@ namespace EfProvider
         {
             base.OnConfiguring(optionsBuilder);
             optionsBuilder.ReplaceService<IEntityMaterializerSource, MyEntityMaterializerSource>();
-            optionsBuilder.UseLoggerFactory(_myLoggerFactory);
+            optionsBuilder.UseLoggerFactory(_loggerFactory);
         }
 
         protected override void OnModelCreating(ModelBuilder builder)
@@ -64,9 +75,9 @@ namespace EfProvider
             builder.HasPostgresExtension("uuid-ossp");
             builder.HasPostgresExtension("pgcrypto");
 
-            foreach (var item in _modeTypes)
+            foreach (Type modelType in _modeTypes)
             {
-                builder.Entity(item);
+                builder.Entity(modelType);
             }
 
             EnumFluentConfig.Config(builder);
@@ -87,9 +98,7 @@ namespace EfProvider
             public static DateTime? NormalizeNullable(DateTime? value)
             {
                 if (value == null)
-                {
                     return null;
-                }
 
                 return DateTime.SpecifyKind(value.Value, DateTimeKind.Utc);
             }

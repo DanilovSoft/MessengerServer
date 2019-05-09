@@ -52,9 +52,9 @@ namespace MessengerServer.Controllers
         }
 
         [AllowAnonymous]
-        public void AuthorizeToken(byte[] token)
+        public bool AuthorizeToken(byte[] token)
         {
-            Context.AuthorizeToken(token);
+            return Context.AuthorizeToken(token);
         }
     }
 }

@@ -1,5 +1,4 @@
-﻿using Contract;
-using Newtonsoft.Json;
+﻿using Newtonsoft.Json;
 using Newtonsoft.Json.Bson;
 using System;
 using System.Collections.Generic;
@@ -10,9 +9,9 @@ namespace wRPC
 {
     internal static class ExtensionMethods
     {
-        public static Message ErrorResponse(this Message request, RemoteException exception)
+        public static Message ErrorResponse(this Message request, RemoteException remoteException)
         {
-            return new Message(request.Uid, result: null, exception.Message, exception.ErrorCode);
+            return new Message(request.Uid, result: null, remoteException.Message, remoteException.ErrorCode);
         }
 
         public static Message ErrorResponse(this Message request, string errorMessage, ErrorCode errorCode)

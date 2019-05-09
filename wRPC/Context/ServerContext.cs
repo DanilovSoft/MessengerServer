@@ -5,6 +5,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Reflection;
 using System.Text;
+using System.Threading.Tasks;
 using MyClientWebSocket = DanilovSoft.WebSocket.ClientWebSocket;
 using MyWebSocket = DanilovSoft.WebSocket.WebSocket;
 
@@ -17,6 +18,10 @@ namespace wRPC
         [DebuggerBrowsable(DebuggerBrowsableState.Never)]
         private string DebugDisplay => "{" + $"{{{GetType().Name}}}, UserId = {UserId?.ToString() ?? "Null"}" + "}";
         #endregion
+
+        private const string PassPhrase = "Pas5pr@se";        // Может быть любой строкой.
+        private const string InitVector = "@1B2c3D4e5F6g7H8"; // Должно быть 16 байт.
+
         /// <summary>
         /// Объект синхронизации текущего экземпляра.
         /// </summary>
@@ -25,17 +30,25 @@ namespace wRPC
         /// Сервер который принял текущее соединение.
         /// </summary>
         public Listener Listener { get; }
+        /// <summary>
+        /// Идентификатор авторизованного пользователя.
+        /// </summary>
         public int? UserId { get; private set; }
         /// <summary>
         /// <see langword="true"/> если клиент авторизован сервером.
         /// </summary>
         public bool IsAuthorized { get; private set; }
+
+        private volatile UserConnections _userConnections;
         /// <summary>
-        /// Смежные соединения текущего пользователя.
+        /// Смежные соединения текущего пользователя. Является <see langword="volatile"/>.
         /// </summary>
-        public UserConnections Connections { get; private set; }
+        public UserConnections UserConnections { get => _userConnections; private set => _userConnections = value; }
         private readonly RijndaelEnhanced _jwt;
 
+        /// <summary>
+        /// Конструктор сервера.
+        /// </summary>
         internal ServerContext(MyWebSocket clientConnection, ServiceCollection ioc, Listener listener) : base(clientConnection, ioc)
         {
             Listener = listener;
@@ -43,12 +56,10 @@ namespace wRPC
             // Копируем список контроллеров сервера.
             Controllers = listener.Controllers;
 
-            string passPhrase = "Pas5pr@se";        // can be any string
-            string initVector = "@1B2c3D4e5F6g7H8"; // must be 16 bytes
-            _jwt = new RijndaelEnhanced(passPhrase, initVector);
+            _jwt = new RijndaelEnhanced(PassPhrase, InitVector);
 
             // Начать обработку запросов текущего пользователя.
-            StartReceivingLoop(WebSocket);
+            StartReceivingLoop(Socket);
         }
 
         /// <summary>
@@ -95,22 +106,54 @@ namespace wRPC
         /// </summary>
         /// <param name="userId"></param>
         /// <exception cref="RemoteException"/>
-        public void AuthorizeToken(byte[] encriptedToken)
+        public bool AuthorizeToken(byte[] encriptedToken)
         {
-            byte[] decripted = _jwt.DecryptToBytes(encriptedToken);
+            // Расшифрованный токен полученный от пользователя.
+            byte[] decripted;
+
+            try
+            {
+                // Расшифровать токен.
+                decripted = _jwt.DecryptToBytes(encriptedToken);
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine(ex);
+
+                // Токен не валиден.
+                return false;
+            }
 
             ServerBearerToken bearerToken;
-            using (var mem = new MemoryStream(decripted))
+            try
             {
-                bearerToken = ProtoBuf.Serializer.Deserialize<ServerBearerToken>(mem);
+                using (var mem = new MemoryStream(decripted))
+                    bearerToken = ProtoBuf.Serializer.Deserialize<ServerBearerToken>(mem);
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine(ex);
+
+                // Токен не валиден.
+                return false;
             }
 
             if (DateTime.Now < bearerToken.Validity)
+            // Токен валиден.
             {
+                // Безусловная авторизация.
                 InnerAuthorize(bearerToken.UserId);
+                return true;
             }
+
+            // Токен не валиден.
+            return false;
         }
 
+        /// <summary>
+        /// Потокобезопасно производит авторизацию текущего соединения.
+        /// </summary>
+        /// <param name="userId">Идентификатор пользователя который будет пазначен текущему контексту.</param>
         private void InnerAuthorize(int userId)
         {
             // Функцию могут вызвать из нескольких потоков.
@@ -123,11 +166,11 @@ namespace wRPC
                     IsAuthorized = true;
 
                     // Добавляем соединение в словарь.
-                    Connections = AddConnection(userId);
+                    UserConnections = AddConnection(userId);
 
                     // Подпишемся на дисконнект.
                     // Событие сработает даже если соединение уже разорвано.
-                    WebSocket.Disconnected += WebSocket_Disconnected;
+                    //Socket.Disconnected += WebSocket_Disconnected;
                 }
                 else
                     throw new RemoteException($"You are already authorized as 'UserId: {UserId}'", ErrorCode.BadRequest);
@@ -135,7 +178,7 @@ namespace wRPC
         }
 
         /// <summary>
-        /// Потокобезопасно добавляет текущее соединение в словарь.
+        /// Потокобезопасно добавляет текущее соединение в словарь или создаёт новый словарь.
         /// </summary>
         private UserConnections AddConnection(int userId)
         {
@@ -157,24 +200,25 @@ namespace wRPC
             } while (true);
         }
 
-        private void WebSocket_Disconnected(object sender, EventArgs e)
+        private protected override void OnDisconnect()
         {
-            // Копия на случай null.
-            UserConnections cons = Connections;
+            // Копируем volatile ссылку.
+            UserConnections userConnections = UserConnections;
 
-            if (cons != null)
+            if (userConnections != null)
             {
                 // Захватить эксклюзивный доступ.
-                lock (cons.SyncRoot)
+                lock (userConnections.SyncRoot)
                 {
                     // Текущее соединение нужно безусловно удалить.
-                    if (cons.Remove(this))
+                    if (userConnections.Remove(this))
+                    // Если успешно удалили значит соединение было авторизованным.
                     {
                         // Если соединений больше не осталось то удалить себя из словаря.
-                        if (!cons.IsDestroyed && cons.Count == 0)
+                        if (!userConnections.IsDestroyed && userConnections.Count == 0)
                         {
                             // Использовать текущую структуру больше нельзя.
-                            cons.IsDestroyed = true;
+                            userConnections.IsDestroyed = true;
 
                             Listener.Connections.TryRemove(UserId.Value, out _);
                         }
@@ -209,6 +253,12 @@ namespace wRPC
                 return;
 
             throw new RemoteException("The request requires user authentication", ErrorCode.Unauthorized);
+        }
+
+        private protected override Task<SocketQueue> GetOrCreateConnectionAsync()
+        {
+            // Текущий метод никогда не будет вызван.
+            throw new NotImplementedException();
         }
 
         public override void Dispose()

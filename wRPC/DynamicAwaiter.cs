@@ -7,9 +7,14 @@ namespace wRPC
 {
     internal static class DynamicAwaiter
     {
-        public static Task<object> FromAsync(object actionResult)
+        /// <summary>
+        /// Асинхронно ожидает завершение задачи если <paramref name="controllerResult"/> является <see cref="Task"/>'ом.
+        /// </summary>
+        /// <param name="controllerResult"><see cref="Task"/> или любой объект.</param>
+        /// <returns></returns>
+        public static Task<object> WaitAsync(object controllerResult)
         {
-            return Async((dynamic)actionResult);
+            return Async((dynamic)controllerResult);
         }
 
         private static Task<object> Async(object rawResult)

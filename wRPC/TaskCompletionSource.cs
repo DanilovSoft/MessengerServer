@@ -1,5 +1,4 @@
-﻿using Contract;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
@@ -40,12 +39,18 @@ namespace wRPC
 
         public TaskCompletionSource GetAwaiter() => this;
 
+        /// <summary>
+        /// Передает ожидающему потоку исключение как результат запроса.
+        /// </summary>
         public void OnException(Exception exception)
         {
             _exception = exception;
             OnResult();
         }
 
+        /// <summary>
+        /// Передает результат ожидающему потоку.
+        /// </summary>
         public void OnResponse(Message response)
         {
             _response = response;

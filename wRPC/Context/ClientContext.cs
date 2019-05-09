@@ -1,5 +1,4 @@
-﻿using Contract;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
@@ -12,168 +11,138 @@ using MyClientWebSocket = DanilovSoft.WebSocket.ClientWebSocket;
 
 namespace wRPC
 {
+    /// <summary>
+    /// Контекст клиентского соединения.
+    /// </summary>
     [DebuggerDisplay("{DebugDisplay,nq}")]
     public class ClientContext : Context
     {
         #region Debug
         [DebuggerBrowsable(DebuggerBrowsableState.Never)]
-        private string DebugDisplay => "{" + $"{{{GetType().Name}}}, Connected = {_connected}" + "}";
+        private string DebugDisplay => "{" + $"{{{GetType().Name}}}, Connected = {Socket != null}" + "}";
         #endregion
         private readonly AsyncLock _asyncLock;
         private readonly Uri _uri;
-        private volatile bool _connected;
         public byte[] BearerToken { get; set; }
 
-        internal ClientContext(Assembly callingAssembly, Uri uri) : base(callingAssembly)
+        /// <summary>
+        /// Конструктор клиента.
+        /// </summary>
+        /// <param name="controllersAssembly">Сборка в которой осуществляется поиск контроллеров.</param>
+        /// <param name="uri">Адрес сервера.</param>
+        internal ClientContext(Assembly controllersAssembly, Uri uri) : base(controllersAssembly)
         {
             _uri = uri;
             _asyncLock = new AsyncLock();
-            WebSocket = new MyClientWebSocket();
-            WebSocket.Disconnected += OnDisconnected;
         }
 
         /// <summary>
         /// Событие — обрыв сокета.
         /// </summary>
-        private async void OnDisconnected(object sender, EventArgs e)
+        private protected override async void OnDisconnect()
         {
-            var ws = (MyClientWebSocket)sender;
-            ws.Disconnected -= OnDisconnected;
-            ws.Dispose();
-
-            if (_connected)
+            if (Socket != null)
             {
                 using (await _asyncLock.LockAsync().ConfigureAwait(false))
                 {
-                    if (_connected)
-                    {
-                        _connected = false;
-                        WebSocket = new MyClientWebSocket();
-                    }
+                    Socket = null;
                 }
             }
+        }
+
+        private protected override Task<SocketQueue> GetOrCreateConnectionAsync()
+        {
+            return ConnectIfNeededAsync();
         }
 
         /// <summary>
         /// Выполнить подключение сокета если еще не подключен.
         /// </summary>
-        internal async Task ConnectIfNeededAsync()
+        private protected async Task<SocketQueue> ConnectIfNeededAsync()
         {
+            // Копия volatile ссылки.
+            SocketQueue socket = Socket;
+
             // Fast-path.
-            if (_connected)
+            if (socket != null)
+                return socket;
+
+            using (await _asyncLock.LockAsync().ConfigureAwait(false))
             {
-                return;
-            }
-            else
-            {
-                using (await _asyncLock.LockAsync().ConfigureAwait(false))
+                // Копия volatile ссылки.
+                socket = Socket;
+
+                // Необходима повторная проверка.
+                if (socket == null)
                 {
-                    if (!_connected)
+                    // Новый сокет.
+                    var ws = new MyClientWebSocket();
+
+                    try
                     {
-                        // Копия ссылки.
-                        var ws = (MyClientWebSocket)WebSocket;
+                        // Простое подключение веб-сокета.
+                        await ws.ConnectAsync(_uri).ConfigureAwait(false);
+                    }
+                    catch
+                    // Не удалось подключиться (сервер не запущен?).
+                    {
+                        ws.Dispose();
+                        throw;
+                    }
 
+                    // Управляемая обвертка для сокета.
+                    socket = new SocketQueue(ws);
+
+                    // Начать бесконечное чтение из сокета.
+                    StartReceivingLoop(socket);
+
+                    // Копируем ссылку на публичный токен.
+                    byte[] bearerTokenCopy = BearerToken;
+
+                    // Если токен установлен то отправить его на сервер что-бы авторизовать текущее подключение.
+                    bool authorized = false;
+                    if (bearerTokenCopy != null)
+                    {
                         try
                         {
-                            await ws.ConnectAsync(_uri).ConfigureAwait(false);
-                        }
-                        catch (Exception ex)
-                        {
-                            Debug.WriteLine(ex);
-                            ws.Dispose();
-                            throw;
-                        }
-
-                        ThreadPool.UnsafeQueueUserWorkItem(StartReceivingLoop, ws);
-
-                        try
-                        {
-                            await AuthorizeAsync(ws).ConfigureAwait(false);
+                            authorized = await AuthorizeAsync(socket, bearerTokenCopy).ConfigureAwait(false);
                         }
                         catch (Exception ex)
                         // Обрыв соединения.
                         {
-                            Debug.WriteLine(ex);
+                            AtomicDisconnect(socket, ex);
                             throw;
                         }
-
-                        _connected = true;
                     }
+
+                    Debug.WriteIf(authorized, "Соединение успешно авторизовано");
+
+                    // Открыть публичный доступ к этому сокету.
+                    // Установка этого свойства должно быть самым последним действием.
+                    Socket = socket;
                 }
+                return socket;
             }
         }
 
-        private async Task AuthorizeAsync(WebSocket ws)
+        /// <summary>
+        /// Отправляет специфический запрос содержащий токен авторизации. Ожидает ответ. При успешном выполнении сокет считается авторизованным.
+        /// </summary>
+        private async Task<bool> AuthorizeAsync(SocketQueue socketQueue, byte[] bearerToken)
         {
-            byte[] token = BearerToken;
-            if (token != null)
+            var message = new Message("Auth/AuthorizeToken")
             {
-                var message = new Message("Auth/AuthorizeToken")
+                Args = new Message.Arg[]
                 {
-                    Args = new Message.Arg[]
-                    {
-                        new Message.Arg("token", BearerToken)
-                    }
-                };
-                await ExecuteRequestAsync(message, typeof(void), doConnect: false).ConfigureAwait(false);
-            }
+                    new Message.Arg("token", bearerToken)
+                }
+            };
+
+            // Отправить запрос и получить ответ.
+            object result = await ExecuteRequestAsync(message, typeof(bool), socketQueue).ConfigureAwait(false);
+
+            return (bool)result;
         }
-
-        ///// <summary>
-        ///// Запускает бесконечный цикл считывающий из сокета зпросы и ответы.
-        ///// </summary>
-        //private async void StartReceivingLoop(object state)
-        //{
-        //    var ws = (MyClientWebSocket)state;
-        //    using (var rentMem = new ArrayPool(4096))
-        //    {
-        //        using (var stream = new MemoryStream(rentMem.Buffer))
-        //        {
-        //            while (ws.State == WebSocketState.Open)
-        //            {
-        //                //stream.TryGetBuffer(out var segment);
-        //                WebSocketReceiveResult message;
-        //                try
-        //                {
-        //                    message = await ws.ReceiveAsync(new ArraySegment<byte>(rentMem.Buffer), CancellationToken.None);
-        //                }
-        //                catch (Exception ex)
-        //                // Разрыв соединения.
-        //                {
-        //                    Debug.WriteLine(ex);
-
-        //                    // Завершить текущий поток.
-        //                    return;
-        //                }
-
-        //                stream.Position = 0;
-
-        //                #region Десериализация.
-
-        //                Response response;
-        //                try
-        //                {
-        //                    response = MessagePackSerializer.Get<Response>().Unpack(stream);
-        //                }
-        //                catch (Exception ex)
-        //                // Не должно быть ошибок десериализации.
-        //                {
-        //                    Debug.WriteLine(ex);
-        //                    try
-        //                    {
-        //                        await ws.CloseAsync(WebSocketCloseStatus.ProtocolError, $"Unable to deserialize type \"{typeof(Response).Name}\"", CancellationToken.None);
-        //                    }
-        //                    catch { }
-        //                    return;
-        //                }
-        //                #endregion
-
-        //                // Передать ответ в очередь запросов.
-        //                _requestQueue.OnResponse(response);
-        //            }
-        //        }
-        //    }
-        //}
 
         protected override void BeforeInvokePrepareController(Controller controller)
         {

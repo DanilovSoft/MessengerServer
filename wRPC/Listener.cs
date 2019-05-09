@@ -1,10 +1,10 @@
-﻿using Contract;
-using DanilovSoft.WebSocket;
+﻿using DanilovSoft.WebSocket;
 using Microsoft.Extensions.DependencyInjection;
 using System;
 using System.Buffers;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Net;
 using System.Net.WebSockets;
@@ -19,12 +19,15 @@ namespace wRPC
     public sealed class Listener : IDisposable
     {
         /// <summary>
-        /// Потокобезопасный словарь используемый только для чтения.
+        /// Словарь используемый только для чтения, поэтому потокобезопасен.
         /// Хранит все доступные контроллеры. Не учитывает регистр.
         /// </summary>
         internal readonly Dictionary<string, Type> Controllers;
         private readonly WebSocketServer _wsServ;
-        // Ключ словаря должен быть сериализуемым идентификатором.
+        /// <summary>
+        /// Коллекция авторизованных пользователей.
+        /// Ключ словаря — UserId авторизованного пользователя.
+        /// </summary>
         public ConcurrentDictionary<int, UserConnections> Connections { get; } = new ConcurrentDictionary<int, UserConnections>();
         ///// <summary>
         ///// Хранит не авторизованные подключения.
@@ -43,13 +46,18 @@ namespace wRPC
             _wsServ.Connected += Listener_OnConnected;
 
             // Контроллеры будем искать в сборке которая вызвала текущую функцию.
-            var controllersAssembly = Assembly.GetCallingAssembly();
+            Assembly controllersAssembly = Assembly.GetCallingAssembly();
+
+            // Сборка с контроллерами не должна быть текущей сборкой.
+            Debug.Assert(controllersAssembly != Assembly.GetExecutingAssembly());
+
+            // Найти контроллеры в сборке.
             Controllers = GlobalVars.FindAllControllers(controllersAssembly);
 
+            // Добавить контроллеры в IoC.
             foreach (Type controllerType in Controllers.Values)
             {
                 IoC.AddScoped(controllerType);
-                //IoC.Bind(controllerType).ToSelf();
             }
         }
 
@@ -67,8 +75,6 @@ namespace wRPC
         {
             // Создать контекст для текущего подключения.
             var context = new ServerContext(clientConnection, IoC, this);
-
-            //_contextList.Add(context);
         }
 
         public void Dispose()
@@ -78,7 +84,6 @@ namespace wRPC
                 _disposed = true;
                 _wsServ.Connected -= Listener_OnConnected;
                 _wsServ.Dispose();
-                //IoC.Dispose();
             }
         }
     }
