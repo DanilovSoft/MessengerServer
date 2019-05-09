@@ -57,10 +57,10 @@ namespace DbMigrator
             var configurationBuilder = new ConfigurationBuilder()
                 .SetBasePath(MigratorProgram.BaseDirectory ?? Directory.GetCurrentDirectory())
                 .AddJsonFile("appsettings.json", true, true)
-                .AddJsonFile($"appsettings.{MigratorProgram.EnvironmentName}.json", true)
-                .AddJsonFile("appsettings.local.json", true);
+                .AddJsonFile($"appsettings.{MigratorProgram.EnvironmentName}.json", optional: true)
+                .AddJsonFile("appsettings.local.json", optional: true);
 
-            var configuration = configurationBuilder.Build();
+            IConfigurationRoot configuration = configurationBuilder.Build();
 
             var modelStore = new ModelStore();
 
