@@ -48,8 +48,8 @@ namespace wRPC
         [JsonProperty(Order = 7, DefaultValueHandling = DefaultValueHandling.IgnoreAndPopulate)]
         public string Error;
 
-        [JsonIgnore]
-        public bool IsSuccessStatusCode => (ErrorCode == null);
+        //[JsonIgnore]
+        //public bool IsSuccessStatusCode => (ErrorCode == null && Error == null);
 
         [JsonConstructor]
         private Message() { }
@@ -81,10 +81,10 @@ namespace wRPC
         /// <exception cref="RemoteException"/>
         public void EnsureSuccessStatusCode()
         {
-            if (!IsSuccessStatusCode)
+            if (Error != null || ErrorCode != null)
             {
                 if (Error != null)
-                    throw new RemoteException(Error, ErrorCode.Value);
+                    throw new RemoteException(Error, ErrorCode);
 
                 throw new RemoteException($"ErrorCode: {ErrorCode.Value}", ErrorCode.Value);
             }

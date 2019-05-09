@@ -146,9 +146,6 @@ namespace wRPC
                 // Если у задачи есть результат.
                 if (targetMethod.ReturnType.IsGenericType)
                 {
-                    // Тип результата задачи.
-                    //Type resultType = targetMethod.ReturnType.GenericTypeArguments[0];
-
                     // Task<object> должен быть преобразован в Task<T>.
                     return TaskConverter.ConvertTask(taskObject, resultType);
                 }
@@ -266,9 +263,9 @@ namespace wRPC
                             string exceptionMessage = GetMessageFromCloseFrame(webSocketMessage);
 
                             // Сообщить потокам что удалённая сторона выполнила закрытие соединения.
-                            var exception = new SocketClosedException(exceptionMessage);
+                            var socketClosedException = new SocketClosedException(exceptionMessage);
 
-                            AtomicDisconnect(socketQueue, exception);
+                            AtomicDisconnect(socketQueue, socketClosedException);
 
                             // Завершить поток.
                             return;
@@ -616,7 +613,10 @@ namespace wRPC
             if (!_disposed)
             {
                 _disposed = true;
-                Socket?.Dispose();
+
+                SocketQueue socket = Socket;
+                if (socket != null)
+                    AtomicDisconnect(socket, new ObjectDisposedException(GetType().Name));
             }
         }
     }

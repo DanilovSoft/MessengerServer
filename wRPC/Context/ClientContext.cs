@@ -39,15 +39,9 @@ namespace wRPC
         /// <summary>
         /// Событие — обрыв сокета.
         /// </summary>
-        private protected override async void OnDisconnect()
+        private protected override void OnDisconnect()
         {
-            if (Socket != null)
-            {
-                using (await _asyncLock.LockAsync().ConfigureAwait(false))
-                {
-                    Socket = null;
-                }
-            }
+            Socket = null;
         }
 
         private protected override Task<SocketQueue> GetOrCreateConnectionAsync()

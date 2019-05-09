@@ -23,7 +23,7 @@ namespace wRPC
 
         }
 
-        public RemoteException(string message, ErrorCode errorCode) : base(message)
+        public RemoteException(string message, ErrorCode? errorCode) : base(message)
         {
             ErrorCode = errorCode;
         }
