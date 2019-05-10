@@ -13,8 +13,8 @@ namespace DataGenerator
     [UsedImplicitly(ImplicitUseKindFlags.InstantiatedWithFixedConstructorSignature)]
     public static class GeneratorProgram
     {
-        public static string EnvironmentName = Microsoft.AspNetCore.Hosting.EnvironmentName.Development;
-        public static string BaseDirectory;
+        private static string _environmentName = Microsoft.AspNetCore.Hosting.EnvironmentName.Development;
+        private static string _baseDirectory;
 
         [UsedImplicitly]
         private static Task Main(string[] args)
@@ -23,15 +23,15 @@ namespace DataGenerator
             {
                 var dataOptions = new OptionSet
                 {
-                    {"environment=", s => EnvironmentName = s}
+                    {"environment=", s => _environmentName = s}
                 };
                 dataOptions.Parse(args);
             }
 
             var configurationBuilder = new ConfigurationBuilder()
-                .SetBasePath(BaseDirectory ?? Directory.GetCurrentDirectory())
+                .SetBasePath(_baseDirectory ?? Directory.GetCurrentDirectory())
                 .AddJsonFile("appsettings.json", true, true)
-                .AddJsonFile($"appsettings.{EnvironmentName}.json", true)
+                .AddJsonFile($"appsettings.{_environmentName}.json", true)
                 .AddJsonFile("appsettings.local.json", true);
 
             var configuration = configurationBuilder.Build();
@@ -42,7 +42,7 @@ namespace DataGenerator
             var context = new CustomEfDbContext(modelStore, builder.Options);
             var provider = new EfDataProvider(context);
 
-            var generator = new DataGenerator(provider, EnvironmentName);
+            var generator = new DataGenerator(provider, _environmentName);
             return generator.Gen();
         }
     }

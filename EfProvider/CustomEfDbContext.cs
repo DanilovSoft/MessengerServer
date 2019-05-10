@@ -17,8 +17,8 @@ namespace EfProvider
 {
     public class CustomEfDbContext : DbContext
     {
-        private static readonly LoggerFactory _loggerFactory = new LoggerFactory(new[] {new DebugLoggerProvider()});
-        private static readonly DebugLoggerProvider _debugLoggerProvider = new DebugLoggerProvider();
+        private static readonly LoggerFactory LoggerFactory = new LoggerFactory(new[] {new DebugLoggerProvider()});
+        private static readonly DebugLoggerProvider DebugLoggerProvider = new DebugLoggerProvider();
 
         private readonly IEnumerable<Type> _modeTypes;
 
@@ -59,7 +59,7 @@ namespace EfProvider
         {
             base.OnConfiguring(optionsBuilder);
             optionsBuilder.ReplaceService<IEntityMaterializerSource, MyEntityMaterializerSource>();
-            optionsBuilder.UseLoggerFactory(_loggerFactory);
+            optionsBuilder.UseLoggerFactory(LoggerFactory);
         }
 
         protected override void OnModelCreating(ModelBuilder builder)

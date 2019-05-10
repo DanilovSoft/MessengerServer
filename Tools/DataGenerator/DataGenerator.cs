@@ -29,10 +29,11 @@ namespace DataGenerator
         private Task User()
         {
             var users = new List<UserDb>();
-            for (var i = 0; i < 10; i++)
+            for (var i = 1; i <= 10; i++)
             {
                 var userDb = new UserDb
                 {
+                    Id = i,
                     Login = "Test" + i,
                     Password = "123456",
                     Profile = new UserProfileDb {Gender = Gender.Undefined}
