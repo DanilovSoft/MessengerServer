@@ -9,13 +9,13 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Contract", "Contract\Contra
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "wRPC", "wRPC\wRPC.csproj", "{1B7F7C87-34D0-4DF4-84CF-AAE97101F791}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "StubClient", "StubClient\StubClient.csproj", "{CFF18421-F020-4D7A-8F0A-D83ACCE53622}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "StubClient", "Tools\StubClient\StubClient.csproj", "{CFF18421-F020-4D7A-8F0A-D83ACCE53622}"
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "DynamicMethodsLib", "DynamicMethodsLib\DynamicMethodsLib.csproj", "{F3F7023E-C0A8-420F-8511-5B637156B944}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Tools", "Tools", "{B1A860A7-E4F5-49C2-801C-F748EA0949AD}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DbMigrator", "DbMigrator\DbMigrator.csproj", "{D922CEBB-4FC5-486B-AD6B-5B57B513ADDC}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DbMigrator", "Tools\DbMigrator\DbMigrator.csproj", "{D922CEBB-4FC5-486B-AD6B-5B57B513ADDC}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "DataBase", "DataBase", "{A498B46C-D79F-41A8-B596-C33C796B4D7A}"
 EndProject
@@ -23,7 +23,7 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DbModel", "DbModel\DbModel.
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EfProvider", "EfProvider\EfProvider.csproj", "{9B397569-51DC-4CA1-896A-EB11B44E0FF1}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DataGenerator", "DataGenerator\DataGenerator.csproj", "{60AF0090-CF6C-4D68-AADB-EE7F5D62A15B}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DataGenerator", "Tools\DataGenerator\DataGenerator.csproj", "{60AF0090-CF6C-4D68-AADB-EE7F5D62A15B}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
