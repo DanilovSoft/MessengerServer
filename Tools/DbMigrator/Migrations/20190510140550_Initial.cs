@@ -20,8 +20,8 @@ namespace DbMigrator.Migrations
                     Id = table.Column<int>(nullable: false),
                     CreatedUtc = table.Column<DateTime>(nullable: false),
                     UpdatedUtc = table.Column<DateTime>(nullable: false),
-                    Login = table.Column<string>(nullable: false),
-                    NormalLogin = table.Column<string>(nullable: false),
+                    Login = table.Column<string>(type: "varchar(32)", maxLength: 32, nullable: false),
+                    NormalLogin = table.Column<string>(type: "varchar(32)", maxLength: 32, nullable: false),
                     Password = table.Column<string>(maxLength: 60, nullable: false)
                 },
                 constraints: table =>

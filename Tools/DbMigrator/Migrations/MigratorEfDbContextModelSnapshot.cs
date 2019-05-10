@@ -30,10 +30,14 @@ namespace DbMigrator.Migrations
                     b.Property<DateTime>("CreatedUtc");
 
                     b.Property<string>("Login")
-                        .IsRequired();
+                        .IsRequired()
+                        .HasColumnType("varchar(32)")
+                        .HasMaxLength(32);
 
                     b.Property<string>("NormalLogin")
-                        .IsRequired();
+                        .IsRequired()
+                        .HasColumnType("varchar(32)")
+                        .HasMaxLength(32);
 
                     b.Property<string>("Password")
                         .IsRequired()

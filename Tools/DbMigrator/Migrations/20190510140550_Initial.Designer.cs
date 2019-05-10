@@ -11,7 +11,7 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace DbMigrator.Migrations
 {
     [DbContext(typeof(DbContextFactory.MigratorEfDbContext))]
-    [Migration("20190510133942_Initial")]
+    [Migration("20190510140550_Initial")]
     partial class Initial
     {
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -32,10 +32,14 @@ namespace DbMigrator.Migrations
                     b.Property<DateTime>("CreatedUtc");
 
                     b.Property<string>("Login")
-                        .IsRequired();
+                        .IsRequired()
+                        .HasColumnType("varchar(32)")
+                        .HasMaxLength(32);
 
                     b.Property<string>("NormalLogin")
-                        .IsRequired();
+                        .IsRequired()
+                        .HasColumnType("varchar(32)")
+                        .HasMaxLength(32);
 
                     b.Property<string>("Password")
                         .IsRequired()

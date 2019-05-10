@@ -8,21 +8,24 @@ namespace DbModel
     [Table("Users")]
     public class UserDb : IEntity<int>, ICreatedUtc, IUpdatedUtc
     {
-        [Key] 
-        public int Id { get; set; }
+        [Key] public int Id { get; set; }
         public DateTime CreatedUtc { get; set; }
         public DateTime UpdatedUtc { get; set; }
-        
-        [Required] 
+
+        [Required]
+        [MaxLength(32)]
+        [Column(TypeName = "varchar(32)")]
         public string Login { get; set; }
-        
-        [Required] 
+
+        [Required]
+        [MaxLength(32)]
+        [Column(TypeName = "varchar(32)")]
         public string NormalLogin { get; set; }
-        
-        [Required] 
+
+        [Required]
         [StringLength(60, MinimumLength = 60)]
         public string Password { get; set; }
-        
+
         public UserProfileDb Profile { get; set; }
     }
 }
