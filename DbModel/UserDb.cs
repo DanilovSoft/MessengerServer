@@ -13,13 +13,11 @@ namespace DbModel
         public DateTime UpdatedUtc { get; set; }
 
         [Required]
-        [MaxLength(32)]
-        [Column(TypeName = "varchar(32)")]
+        [StringLength(32)]
         public string Login { get; set; }
 
         [Required]
-        [MaxLength(32)]
-        [Column(TypeName = "varchar(32)")]
+        [StringLength(32)]
         public string NormalLogin { get; set; }
 
         [Required]

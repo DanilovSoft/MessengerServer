@@ -31,12 +31,10 @@ namespace DbMigrator.Migrations
 
                     b.Property<string>("Login")
                         .IsRequired()
-                        .HasColumnType("varchar(32)")
                         .HasMaxLength(32);
 
                     b.Property<string>("NormalLogin")
                         .IsRequired()
-                        .HasColumnType("varchar(32)")
                         .HasMaxLength(32);
 
                     b.Property<string>("Password")

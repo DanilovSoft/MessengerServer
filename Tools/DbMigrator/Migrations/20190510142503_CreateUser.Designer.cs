@@ -11,8 +11,8 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace DbMigrator.Migrations
 {
     [DbContext(typeof(DbContextFactory.MigratorEfDbContext))]
-    [Migration("20190510140550_Initial")]
-    partial class Initial
+    [Migration("20190510142503_Create_User")]
+    partial class CreateUser
     {
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
@@ -33,12 +33,10 @@ namespace DbMigrator.Migrations
 
                     b.Property<string>("Login")
                         .IsRequired()
-                        .HasColumnType("varchar(32)")
                         .HasMaxLength(32);
 
                     b.Property<string>("NormalLogin")
                         .IsRequired()
-                        .HasColumnType("varchar(32)")
                         .HasMaxLength(32);
 
                     b.Property<string>("Password")

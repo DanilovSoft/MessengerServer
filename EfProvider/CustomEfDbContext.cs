@@ -17,45 +17,14 @@ namespace EfProvider
 {
     public class CustomEfDbContext : DbContext
     {
-        private static readonly LoggerFactory _loggerFactory = new LoggerFactory(new[] { new DebugLoggerProvider() });
-        // Выводит логи в Debug.
+        private static readonly LoggerFactory _loggerFactory = new LoggerFactory(new[] {new DebugLoggerProvider()});
         private static readonly DebugLoggerProvider _debugLoggerProvider = new DebugLoggerProvider();
+
         private readonly IEnumerable<Type> _modeTypes;
 
         static CustomEfDbContext()
         {
             EnumFluentConfig.MapEnum();
-        }
-
-        // ctor.
-        public CustomEfDbContext()
-        {
-/*
-CREATE OR REPLACE FUNCTION public.gen_password (
-)
-RETURNS trigger AS
-$body$
-BEGIN
-	NEW."Password" = crypt(NEW."Password", gen_salt('bf'));
-	RETURN NEW;
-END;
-$body$
-LANGUAGE 'plpgsql'
-VOLATILE
-CALLED ON NULL INPUT
-SECURITY INVOKER
-PARALLEL UNSAFE
-COST 100;
-
-ALTER FUNCTION public.gen_password ()
-  OWNER TO postgres;
-
-CREATE TRIGGER "Users_tr"
-BEFORE INSERT OR UPDATE OF "Password" 
-ON public."Users"
-FOR EACH ROW
-    EXECUTE PROCEDURE public.gen_password();
-*/
         }
 
         public CustomEfDbContext(IModelStore modelStore, [NotNull] DbContextOptions options) : base(options)

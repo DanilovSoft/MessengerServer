@@ -11,7 +11,7 @@ namespace DataGenerator
         private readonly IDataProvider _provider;
         private readonly string _environment;
 
-        public DataGenerator(IDataProvider provider, string environment)
+        public DataGenerator(IDataProvider provider, string environment = default)
         {
             _provider = provider;
             _environment = environment;
@@ -37,6 +37,7 @@ namespace DataGenerator
                     Password = "123456",
                     Profile = new UserProfileDb {Gender = Gender.Undefined}
                 };
+                userDb.NormalLogin = userDb.Login.ToLower();
                 users.Add(userDb);
             }
 

@@ -16,4 +16,8 @@
     <ProjectReference Include="..\DbModel\DbModel.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Folder Include="Config" />
+  </ItemGroup>
+
 </Project>
