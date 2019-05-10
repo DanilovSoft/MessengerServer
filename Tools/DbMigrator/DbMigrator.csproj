@@ -18,7 +18,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\EfProvider\EfProvider.csproj" />
+    <ProjectReference Include="..\..\EfProvider\EfProvider.csproj" />
   </ItemGroup>
 
 </Project>

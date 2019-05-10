@@ -13,8 +13,8 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\Contract\Contract.csproj" />
-    <ProjectReference Include="..\wRPC\wRPC.csproj" />
+    <ProjectReference Include="..\..\Contract\Contract.csproj" />
+    <ProjectReference Include="..\..\wRPC\wRPC.csproj" />
   </ItemGroup>
 
 </Project>
