@@ -14,7 +14,7 @@ namespace DbMigrator.Migrations
                 .Annotation("Npgsql:PostgresExtension:uuid-ossp", ",,");
 
             migrationBuilder.CreateTable(
-                name: "User",
+                name: "Users",
                 columns: table => new
                 {
                     Id = table.Column<int>(nullable: false),
@@ -22,15 +22,15 @@ namespace DbMigrator.Migrations
                     UpdatedUtc = table.Column<DateTime>(nullable: false),
                     Login = table.Column<string>(nullable: false),
                     NormalLogin = table.Column<string>(nullable: false),
-                    Pasword = table.Column<string>(maxLength: 60, nullable: false)
+                    Password = table.Column<string>(maxLength: 60, nullable: false)
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("PK_User", x => x.Id);
+                    table.PrimaryKey("PK_Users", x => x.Id);
                 });
 
             migrationBuilder.CreateTable(
-                name: "UserProfile",
+                name: "UserProfiles",
                 columns: table => new
                 {
                     Id = table.Column<int>(nullable: false),
@@ -38,39 +38,39 @@ namespace DbMigrator.Migrations
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("PK_UserProfile", x => x.Id);
+                    table.PrimaryKey("PK_UserProfiles", x => x.Id);
                     table.ForeignKey(
-                        name: "FK_UserProfile_User_Id",
+                        name: "FK_UserProfiles_Users_Id",
                         column: x => x.Id,
-                        principalTable: "User",
+                        principalTable: "Users",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Restrict);
                 });
 
             migrationBuilder.CreateIndex(
-                name: "IX_User_CreatedUtc",
-                table: "User",
+                name: "IX_Users_CreatedUtc",
+                table: "Users",
                 column: "CreatedUtc");
 
             migrationBuilder.CreateIndex(
-                name: "IX_User_NormalLogin",
-                table: "User",
+                name: "IX_Users_NormalLogin",
+                table: "Users",
                 column: "NormalLogin",
                 unique: true);
 
             migrationBuilder.CreateIndex(
-                name: "IX_User_UpdatedUtc",
-                table: "User",
+                name: "IX_Users_UpdatedUtc",
+                table: "Users",
                 column: "UpdatedUtc");
         }
 
         protected override void Down(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.DropTable(
-                name: "UserProfile");
+                name: "UserProfiles");
 
             migrationBuilder.DropTable(
-                name: "User");
+                name: "Users");
         }
     }
 }

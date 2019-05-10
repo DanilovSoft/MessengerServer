@@ -31,7 +31,7 @@ namespace MessengerServer.Controllers
             Dto.User user = await _dataProvider.Get<UserDb>()
                 .Where(x => 
                     x.NormalLogin == login.ToLower() &&
-                    x.Pasword == PostgresEfExtensions.Crypt(password, x.Pasword)
+                    x.Password == PostgresEfExtensions.Crypt(password, x.Password)
                 )
                 .Select(x => new Dto.User
                 {

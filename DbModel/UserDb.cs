@@ -5,7 +5,7 @@ using DbModel.Base;
 
 namespace DbModel
 {
-    [Table("User")]
+    [Table("Users")]
     public class UserDb : IEntity<int>, ICreatedUtc, IUpdatedUtc
     {
         [Key] 
@@ -21,7 +21,7 @@ namespace DbModel
         
         [Required] 
         [StringLength(60, MinimumLength = 60)]
-        public string Pasword { get; set; }
+        public string Password { get; set; }
         
         public UserProfileDb Profile { get; set; }
     }

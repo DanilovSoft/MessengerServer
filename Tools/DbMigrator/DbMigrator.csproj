@@ -21,4 +21,8 @@
     <ProjectReference Include="..\..\EfProvider\EfProvider.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Folder Include="Migrations" />
+  </ItemGroup>
+
 </Project>

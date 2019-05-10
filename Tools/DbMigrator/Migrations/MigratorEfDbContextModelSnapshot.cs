@@ -35,7 +35,7 @@ namespace DbMigrator.Migrations
                     b.Property<string>("NormalLogin")
                         .IsRequired();
 
-                    b.Property<string>("Pasword")
+                    b.Property<string>("Password")
                         .IsRequired()
                         .HasMaxLength(60);
 
@@ -50,7 +50,7 @@ namespace DbMigrator.Migrations
 
                     b.HasIndex("UpdatedUtc");
 
-                    b.ToTable("User");
+                    b.ToTable("Users");
                 });
 
             modelBuilder.Entity("DbModel.UserProfileDb", b =>
@@ -61,7 +61,7 @@ namespace DbMigrator.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("UserProfile");
+                    b.ToTable("UserProfiles");
                 });
 
             modelBuilder.Entity("DbModel.UserProfileDb", b =>

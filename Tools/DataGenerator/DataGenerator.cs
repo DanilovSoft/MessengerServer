@@ -34,7 +34,7 @@ namespace DataGenerator
                 var userDb = new UserDb
                 {
                     Login = "Test" + i,
-                    Pasword = "123456",
+                    Password = "123456",
                     Profile = new UserProfileDb {Gender = Gender.Undefined}
                 };
                 users.Add(userDb);

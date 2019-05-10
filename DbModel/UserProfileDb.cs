@@ -5,7 +5,7 @@ using DbModel.DbTypes;
 
 namespace DbModel
 {
-    [Table("UserProfile")]
+    [Table("UserProfiles")]
     public class UserProfileDb : IEntity<int>
     {
         [Key]
