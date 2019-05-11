@@ -1,3 +1,4 @@
+using System;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using DbModel.Base;
@@ -15,5 +16,10 @@ namespace DbModel
         
         [ForeignKey(nameof(Id))]
         public UserDb User { get; set; }
+
+        /// <summary>
+        /// —сылка на аватар пользовател€.
+        /// </summary>
+        public string Avatar { get; set; }
     }
 }

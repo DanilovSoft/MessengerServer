@@ -44,6 +44,14 @@ namespace wRPC
         /// Является <see langword="volatile"/>.
         /// </summary>
         private protected SocketQueue Socket { get => _socket; set => _socket = value; }
+        /// <summary>
+        /// Токен отмены связанный с текущим соединением. Позволяет прервать действие контроллера при обрыве соединения.
+        /// </summary>
+        private readonly CancellationTokenSource _cts = new CancellationTokenSource();
+        /// <summary>
+        /// Токен отмены связанный с текущим соединением.
+        /// </summary>
+        public CancellationToken CancellationToken => _cts.Token;
         private bool _disposed;
 
         /// <summary>
@@ -361,7 +369,10 @@ namespace wRPC
                 // Передать исключение всем ожидающим потокам.
                 socketQueue.RequestQueue.OnDisconnect(exception);
 
+                // Закрывает соединение.
                 socketQueue.Dispose();
+
+                _cts.Cancel();
 
                 OnDisconnect();
             }

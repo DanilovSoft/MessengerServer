@@ -17,8 +17,8 @@ namespace EfProvider
 {
     public class CustomEfDbContext : DbContext
     {
-        private static readonly LoggerFactory LoggerFactory = new LoggerFactory(new[] {new DebugLoggerProvider()});
         private static readonly DebugLoggerProvider DebugLoggerProvider = new DebugLoggerProvider();
+        private readonly LoggerFactory LoggerFactory;
 
         private readonly IEnumerable<Type> _modeTypes;
 
@@ -27,9 +27,11 @@ namespace EfProvider
             EnumFluentConfig.MapEnum();
         }
 
+        // ctor.
         public CustomEfDbContext(IModelStore modelStore, [NotNull] DbContextOptions options) : base(options)
         {
             _modeTypes = modelStore.GetModels();
+            LoggerFactory = new LoggerFactory(new[] { DebugLoggerProvider });
         }
 
         public void Reset()

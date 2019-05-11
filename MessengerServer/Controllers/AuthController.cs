@@ -38,7 +38,7 @@ namespace MessengerServer.Controllers
                     Id = x.Id,
                     Name = x.Login
                 })
-                .SingleOrDefaultAsync();
+                .SingleOrDefaultAsync(Context.CancellationToken);
 
             if (user == null)
                 throw new RemoteException("Не верный логин и/или пароль");

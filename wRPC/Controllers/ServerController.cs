@@ -11,7 +11,11 @@ namespace wRPC
         /// Контекст подключения на стороне сервера.
         /// </summary>
         public ServerContext Context { get; internal set; }
-        //public Listener Listener { get; internal set; }
-        //public ConcurrentDictionary<int, UserConnections> Connections => Listener.Connections;
+
+        // ctor.
+        public ServerController()
+        {
+
+        }
     }
 }

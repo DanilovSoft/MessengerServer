@@ -17,9 +17,9 @@ namespace DataGenerator
         private static string _baseDirectory;
 
         [UsedImplicitly]
-        private static Task Main(string[] args)
+        private static void Main(string[] args)
         {
-            if (args.Any())
+            if (args.Length > 0)
             {
                 var dataOptions = new OptionSet
                 {
@@ -34,16 +34,17 @@ namespace DataGenerator
                 .AddJsonFile($"appsettings.{_environmentName}.json", true)
                 .AddJsonFile("appsettings.local.json", true);
 
-            var configuration = configurationBuilder.Build();
+            IConfigurationRoot configuration = configurationBuilder.Build();
             var builder = new DbContextOptionsBuilder()
-                .UseNpgsql(configuration["DbConnection"], n => n.MigrationsAssembly("DbMigrator"));
+                .UseNpgsql(configuration["DbConnection"], x => x.MigrationsAssembly("DbMigrator"));
 
             var modelStore = new ModelStore();
             var context = new CustomEfDbContext(modelStore, builder.Options);
             var provider = new EfDataProvider(context);
 
             var generator = new DataGenerator(provider, _environmentName);
-            return generator.Gen();
+
+            generator.GenAsync().GetAwaiter().GetResult();
         }
     }
 }

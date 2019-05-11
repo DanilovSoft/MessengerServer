@@ -39,7 +39,7 @@ namespace EfProvider
 
         #region Modify
 
-        public async Task<T> Insert<T>(T entity) where T : class, IEntity
+        public async Task<T> InsertAsync<T>(T entity) where T : class, IEntity
         {
             await ExecuteCommand(() =>
             {
@@ -50,7 +50,7 @@ namespace EfProvider
             return entity;
         }
 
-        public async Task<T> Update<T>(T entity, bool ignoreSystemProps = true) where T : class, IEntity
+        public async Task<T> UpdateAsync<T>(T entity, bool ignoreSystemProps = true) where T : class, IEntity
         {
             await ExecuteCommand(() =>
             {
@@ -61,19 +61,19 @@ namespace EfProvider
             return entity;
         }
 
-        public async Task Delete<T>(T entity) where T : class, IEntity
+        public Task DeleteAsync<T>(T entity) where T : class, IEntity
         {
-            await ExecuteCommand(() =>
+            return ExecuteCommand(() =>
             {
                 _dbContext.Set<T>().Remove(entity);
                 return _dbContext.SaveChangesAsync();
             });
         }
 
-        public async Task DeleteById<T, TKey>(TKey id) where T : class, IEntity, IEntity<TKey>
+        public Task DeleteByIdAsync<T, TKey>(TKey id) where T : class, IEntity, IEntity<TKey>
             where TKey : IComparable
         {
-            await ExecuteCommand(async () =>
+            return ExecuteCommand(async () =>
             {
                 var entity = await _dbContext.Set<T>().Where(t => id.Equals(t.Id)).SingleAsync();
 
@@ -82,10 +82,10 @@ namespace EfProvider
             });
         }
 
-        public async Task SetDelete<T, TKey>(TKey id) where T : class, IEntity, IDeletedUtc, IEntity<TKey>
+        public Task SetDeleteAsync<T, TKey>(TKey id) where T : class, IEntity, IDeletedUtc, IEntity<TKey>
             where TKey : IComparable
         {
-            await ExecuteCommand(async () =>
+            return ExecuteCommand(async () =>
             {
                 var entity = await _dbContext.Set<T>().Where(t => id.Equals(t.Id)).SingleAsync();
                 entity.DeletedUtc = DateTime.UtcNow;
@@ -99,46 +99,43 @@ namespace EfProvider
 
         #region BatchModify
 
-        public async Task BatchInsert<T>(IEnumerable<T> entities) where T : class, IEntity
+        public Task BatchInsertAsync<T>(IEnumerable<T> entities) where T : class, IEntity
         {
-            await ExecuteCommand(() =>
+            return ExecuteCommand(() =>
             {
                 foreach (var entity in entities)
                 {
                     Add(entity);
                 }
-
                 return _dbContext.SaveChangesAsync();
             });
         }
 
-        public async Task BatchUpdate<T>(IEnumerable<T> entities, bool ignoreSystemProps = true)
-            where T : class, IEntity
+        public Task BatchUpdateAsync<T>(IEnumerable<T> entities, bool ignoreSystemProps = true) where T : class, IEntity
         {
-            await ExecuteCommand(() =>
+            return ExecuteCommand(() =>
             {
                 foreach (var entity in entities)
                 {
                     UpdateEntity(entity, ignoreSystemProps);
                 }
-
                 return _dbContext.SaveChangesAsync();
             });
         }
 
-        public async Task BatchDelete<T>(IEnumerable<T> entities) where T : class, IEntity
+        public Task BatchDeleteAsync<T>(IEnumerable<T> entities) where T : class, IEntity
         {
-            await ExecuteCommand(() =>
+            return ExecuteCommand(() =>
             {
                 _dbContext.Set<T>().RemoveRange(entities);
                 return _dbContext.SaveChangesAsync();
             });
         }
 
-        public async Task BatchDeleteByIds<T, TKey>(IEnumerable<TKey> ids) where T : class, IEntity, IEntity<TKey>
+        public Task BatchDeleteByIdsAsync<T, TKey>(IEnumerable<TKey> ids) where T : class, IEntity, IEntity<TKey>
             where TKey : IComparable
         {
-            await ExecuteCommand(async () =>
+            return ExecuteCommand(async () =>
             {
                 var entity = await _dbContext.Set<T>().Where(t => ids.Contains(t.Id)).ToArrayAsync();
 
@@ -147,11 +144,11 @@ namespace EfProvider
             });
         }
 
-        public async Task BatchSetDelete<T, TKey>(IEnumerable<TKey> ids)
+        public Task BatchSetDeleteAsync<T, TKey>(IEnumerable<TKey> ids)
             where T : class, IEntity, IDeletedUtc, IEntity<TKey>
             where TKey : IComparable
         {
-            await ExecuteCommand(async () =>
+            return ExecuteCommand(async () =>
             {
                 var entities = await _dbContext.Set<T>().Where(t => ids.Contains(t.Id)).ToArrayAsync();
 
@@ -169,18 +166,18 @@ namespace EfProvider
 
         #region SafeExecute
 
-        public async Task<T> SafeExecute<T>([InstantHandle] Func<IDataProvider, Task<T>> action,
+        public async Task<T> SafeExecuteAsync<T>([InstantHandle] Func<IDataProvider, Task<T>> action,
             IsolationLevel level = IsolationLevel.RepeatableRead, int retryCount = 3)
         {
             var result = default(T);
             async Task Wrapper(IDataProvider db) => result = await action(db);
 
-            await SafeExecute(Wrapper, level, retryCount);
+            await SafeExecuteAsync(Wrapper, level, retryCount);
 
             return result;
         }
 
-        public async Task SafeExecute([InstantHandle] Func<IDataProvider, Task> action,
+        public async Task SafeExecuteAsync([InstantHandle] Func<IDataProvider, Task> action,
             IsolationLevel level = IsolationLevel.RepeatableRead, int retryCount = 3)
         {
             var count = 0;
@@ -188,7 +185,7 @@ namespace EfProvider
             {
                 try
                 {
-                    using (var transaction = Transaction(level))
+                    using (IDbContextTransaction transaction = Transaction(level))
                     {
                         await action(this);
                         transaction.Commit();
@@ -204,7 +201,6 @@ namespace EfProvider
                         await Task.Delay(TimeSpan.FromSeconds(1));
                         continue;
                     }
-
                     throw;
                 }
             }
@@ -237,12 +233,12 @@ namespace EfProvider
             var entityEntry = _dbContext.Entry(entity);
             if (ignoreSystemProps)
             {
-                if ((object) entity is IDeletedUtc)
+                if (entity is IDeletedUtc)
                 {
                     entityEntry.Property(nameof(IDeletedUtc.DeletedUtc)).IsModified = false;
                 }
 
-                if ((object) entity is ICreatedUtc)
+                if (entity is ICreatedUtc)
                 {
                     entityEntry.Property(nameof(ICreatedUtc.CreatedUtc)).IsModified = false;
                 }
