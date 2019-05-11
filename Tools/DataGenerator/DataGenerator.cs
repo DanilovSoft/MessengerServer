@@ -1,10 +1,11 @@
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Bogus;
-using Bogus.DataSets;
 using DbModel;
 using DbModel.DbTypes;
 using EfProvider;
+using Microsoft.EntityFrameworkCore;
 
 namespace DataGenerator
 {
@@ -24,6 +25,7 @@ namespace DataGenerator
             using (var transaction = _provider.Transaction())
             {
                 await GenUsers();
+                await GenGroups();
 
                 transaction.Commit();
             }
@@ -48,6 +50,47 @@ namespace DataGenerator
 
             var userDbs = userFaker.Generate(10);
             return _provider.BatchInsertAsync(userDbs);
+        }
+
+        private async Task GenGroups()
+        {
+            if (_provider.Get<GroupDb>().Any()) return;
+
+            var userIds = await _provider.Get<UserDb>().Select(u => u.Id).ToArrayAsync();
+
+            long id = 1;
+            var groupFaker = new Faker<GroupDb>()
+                .CustomInstantiator(f => new GroupDb {Id = id++})
+                .RuleFor(p => p.Name, f => f.Name.JobType())
+                .RuleFor(p => p.AvatarUrl, f => f.Internet.Avatar())
+                .RuleFor(p => p.Users, () => new List<UserGroupDb>())
+                .RuleFor(p => p.Messages, () => new List<MessageDb>());
+
+            var groups = groupFaker.Generate(userIds.Length);
+            for (int i = 0; i < userIds.Length; i++)
+            {
+                var group = groups[i];
+                group.CreatorId = userIds[i];
+                group.Users.Add(new UserGroupDb {GroupId = group.Id, UserId = group.CreatorId});
+                var userId = (i + 1 == userIds.Length ? i - userIds.Length : i) + 1;
+                group.Users.Add(new UserGroupDb {GroupId = group.Id, UserId = userIds[userId]});
+            }
+
+            var multyGroup = groupFaker.Generate(userIds.Length);
+            for (int i = 0; i < userIds.Length; i++)
+            {
+                var group = multyGroup[i];
+                group.CreatorId = userIds[i];
+                group.Users.Add(new UserGroupDb {GroupId = group.Id, UserId = group.CreatorId});
+                var userId = (i + 1 >= userIds.Length ? i - userIds.Length : i) + 1;
+                group.Users.Add(new UserGroupDb {GroupId = group.Id, UserId = userIds[userId]});
+                userId = (i + 2 >= userIds.Length ? i - userIds.Length : i) + 2;
+                group.Users.Add(new UserGroupDb {GroupId = group.Id, UserId = userIds[userId]});
+            }
+
+            groups.AddRange(multyGroup);
+
+            await _provider.BatchInsertAsync(groups);
         }
     }
 }
