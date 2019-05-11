@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
@@ -26,6 +27,7 @@ namespace DataGenerator
             {
                 await GenUsers();
                 await GenGroups();
+                await GenMessages();
 
                 transaction.Commit();
             }
@@ -54,7 +56,7 @@ namespace DataGenerator
 
         private async Task GenGroups()
         {
-            if (_provider.Get<GroupDb>().Any()) return;
+            if (await _provider.Get<GroupDb>().AnyAsync()) return;
 
             var userIds = await _provider.Get<UserDb>().Select(u => u.Id).ToArrayAsync();
 
@@ -91,6 +93,33 @@ namespace DataGenerator
             groups.AddRange(multyGroup);
 
             await _provider.BatchInsertAsync(groups);
+        }
+
+        private async Task GenMessages()
+        {
+            if (await _provider.Get<MessageDb>().AnyAsync()) return;
+
+            var userGroups = await _provider.Get<UserGroupDb>().ToArrayAsync();
+
+            var messageFaker = new Faker<MessageDb>()
+                .RuleFor(p => p.Id, Guid.NewGuid)
+                .RuleFor(p => p.Text, f => f.Random.Words())
+                .RuleFor(p => p.FileUrl, f => f.Internet.Url());
+
+            int count = 10;
+            var messageDbs = messageFaker.Generate(count * userGroups.Length);
+            for (var i = 0; i < userGroups.Length; i++)
+            {
+                var userGroup = userGroups[i];
+                var messages = messageDbs.Skip(i * count).Take(count);
+                foreach (var message in messages)
+                {
+                    message.UserId = userGroup.UserId;
+                    message.GroupId = userGroup.GroupId;
+                }
+            }
+
+            await _provider.BatchInsertAsync(messageDbs);
         }
     }
 }
