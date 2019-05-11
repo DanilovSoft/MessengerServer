@@ -16,7 +16,7 @@ namespace EfProvider
 
         Task<T> InsertAsync<T>(T entity) where T : class, IEntity;
         /// <summary>
-        /// Пакетная вставка записей в БД.
+        /// РџР°РєРµС‚РЅР°СЏ РІСЃС‚Р°РІРєР° Р·Р°РїРёСЃРµР№ РІ Р‘Р”.
         /// </summary>
         Task BatchInsertAsync<T>(IEnumerable<T> entities) where T : class, IEntity;
 

@@ -27,7 +27,8 @@ namespace DataGenerator
             {
                 await GenUsers();
                 await GenGroups();
-                await GenMessages();
+                await GenMessages(5);
+                await GenMessages(5);
 
                 transaction.Commit();
             }
@@ -63,50 +64,62 @@ namespace DataGenerator
             long id = 1;
             var groupFaker = new Faker<GroupDb>()
                 .CustomInstantiator(f => new GroupDb {Id = id++})
-                .RuleFor(p => p.Name, f => f.Name.JobType())
+                .RuleFor(p => p.Name, f => f.Company.CompanyName())
                 .RuleFor(p => p.AvatarUrl, f => f.Internet.Avatar())
                 .RuleFor(p => p.Users, () => new List<UserGroupDb>())
                 .RuleFor(p => p.Messages, () => new List<MessageDb>());
 
-            var groups = groupFaker.Generate(userIds.Length);
-            for (int i = 0; i < userIds.Length; i++)
+            var group1 = Gen();
+            var group2 = Gen(2);
+
+            await _provider.BatchInsertAsync(group1.Union(group2));
+
+            IEnumerable<GroupDb> Gen(int addingUsers = 1)
             {
-                var group = groups[i];
-                group.CreatorId = userIds[i];
-                group.Users.Add(new UserGroupDb {GroupId = group.Id, UserId = group.CreatorId});
-                var userId = (i + 1 == userIds.Length ? i - userIds.Length : i) + 1;
-                group.Users.Add(new UserGroupDb {GroupId = group.Id, UserId = userIds[userId]});
+                var groups = groupFaker.Generate(userIds.Length);
+                for (int i = 0; i < userIds.Length; i++)
+                {
+                    var group = groups[i];
+                    group.CreatorId = userIds[i];
+                    group.Users.Add(new UserGroupDb {GroupId = group.Id, UserId = group.CreatorId});
+
+                    foreach (var userGroup in GenUserGroups(group, i, addingUsers))
+                    {
+                        group.Users.Add(userGroup);
+                    }
+
+                    yield return group;
+                }
             }
 
-            var multyGroup = groupFaker.Generate(userIds.Length);
-            for (int i = 0; i < userIds.Length; i++)
+            IEnumerable<UserGroupDb> GenUserGroups(GroupDb group, int current, int addingUsers = 1)
             {
-                var group = multyGroup[i];
-                group.CreatorId = userIds[i];
-                group.Users.Add(new UserGroupDb {GroupId = group.Id, UserId = group.CreatorId});
-                var userId = (i + 1 >= userIds.Length ? i - userIds.Length : i) + 1;
-                group.Users.Add(new UserGroupDb {GroupId = group.Id, UserId = userIds[userId]});
-                userId = (i + 2 >= userIds.Length ? i - userIds.Length : i) + 2;
-                group.Users.Add(new UserGroupDb {GroupId = group.Id, UserId = userIds[userId]});
+                for (int i = 1; i <= addingUsers; i++)
+                {
+                    yield return new UserGroupDb
+                    {
+                        GroupId = group.Id,
+                        UserId = userIds[(current + i >= userIds.Length ? current - userIds.Length : current) + i],
+                        InviterId = group.CreatorId
+                    };
+                }
             }
-
-            groups.AddRange(multyGroup);
-
-            await _provider.BatchInsertAsync(groups);
         }
 
-        private async Task GenMessages()
+        /// <summary>
+        /// Генерирует сообщения во все чаты от всех пользователей.
+        /// Не делает проверку на существование других сообщений.
+        /// </summary>
+        /// <param name="count">Количество сообщений от пользователя внутри каждого чата</param>
+        /// <returns></returns>
+        private async Task GenMessages(int count = 10)
         {
-            if (await _provider.Get<MessageDb>().AnyAsync()) return;
-
-            var userGroups = await _provider.Get<UserGroupDb>().ToArrayAsync();
-
             var messageFaker = new Faker<MessageDb>()
                 .RuleFor(p => p.Id, Guid.NewGuid)
                 .RuleFor(p => p.Text, f => f.Random.Words())
-                .RuleFor(p => p.FileUrl, f => f.Internet.Url());
+                .RuleFor(p => p.FileUrl, f => f.Image.PicsumUrl());
 
-            int count = 10;
+            var userGroups = await _provider.Get<UserGroupDb>().ToArrayAsync();
             var messageDbs = messageFaker.Generate(count * userGroups.Length);
             for (var i = 0; i < userGroups.Length; i++)
             {
@@ -119,7 +132,7 @@ namespace DataGenerator
                 }
             }
 
-            await _provider.BatchInsertAsync(messageDbs);
+            await _provider.BatchInsertAsync(messageDbs.OrderBy(x => Guid.NewGuid()));
         }
     }
 }
