@@ -39,9 +39,10 @@ namespace wRPC
         /// <summary>
         /// Событие — обрыв сокета.
         /// </summary>
-        private protected override void OnDisconnect()
+        private protected override void OnDisconnect(SocketQueue socketQueue)
         {
-            Socket = null;
+            // Установить Socket = null если в ссылке хранится экземпляр соединения в котором произошел обрыв.
+            Interlocked.CompareExchange(ref _socket, null, socketQueue);
         }
 
         private protected override Task<SocketQueue> GetOrCreateConnectionAsync()
@@ -55,19 +56,19 @@ namespace wRPC
         private protected async Task<SocketQueue> ConnectIfNeededAsync()
         {
             // Копия volatile ссылки.
-            SocketQueue socket = Socket;
+            SocketQueue socketQueue = Socket;
 
             // Fast-path.
-            if (socket != null)
-                return socket;
+            if (socketQueue != null)
+                return socketQueue;
 
             using (await _asyncLock.LockAsync().ConfigureAwait(false))
             {
                 // Копия volatile ссылки.
-                socket = Socket;
+                socketQueue = Socket;
 
                 // Необходима повторная проверка.
-                if (socket == null)
+                if (socketQueue == null)
                 {
                     // Новый сокет.
                     var ws = new MyClientWebSocket();
@@ -85,10 +86,10 @@ namespace wRPC
                     }
 
                     // Управляемая обвертка для сокета.
-                    socket = new SocketQueue(ws);
+                    socketQueue = new SocketQueue(ws);
 
                     // Начать бесконечное чтение из сокета.
-                    StartReceivingLoop(socket);
+                    StartReceivingLoop(socketQueue);
 
                     // Копируем ссылку на публичный токен.
                     byte[] bearerTokenCopy = BearerToken;
@@ -99,12 +100,13 @@ namespace wRPC
                     {
                         try
                         {
-                            authorized = await AuthorizeAsync(socket, bearerTokenCopy).ConfigureAwait(false);
+                            authorized = await AuthorizeAsync(socketQueue, bearerTokenCopy).ConfigureAwait(false);
                         }
                         catch (Exception ex)
                         // Обрыв соединения.
                         {
-                            AtomicDisconnect(socket, ex);
+                            // Оповестить об обрыве.
+                            AtomicDisconnect(socketQueue, ex);
                             throw;
                         }
                     }
@@ -113,9 +115,9 @@ namespace wRPC
 
                     // Открыть публичный доступ к этому сокету.
                     // Установка этого свойства должно быть самым последним действием.
-                    Socket = socket;
+                    Interlocked.CompareExchange(ref _socket, socketQueue, null); // Записать только если в ссылке Null.
                 }
-                return socket;
+                return socketQueue;
             }
         }
 
