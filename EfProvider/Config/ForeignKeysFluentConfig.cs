@@ -14,6 +14,12 @@ namespace EfProvider.Config
                 .OnDelete(DeleteBehavior.Restrict);
 
             builder.Entity<UserDb>()
+                .HasMany(n => n.Creations)
+                .WithOne(n => n.Creator)
+                .HasForeignKey(d => d.CreatorId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            builder.Entity<UserDb>()
                 .HasMany(n => n.Groups)
                 .WithOne(n => n.User)
                 .HasForeignKey(n => n.UserId)
@@ -36,7 +42,7 @@ namespace EfProvider.Config
                 .WithOne(n => n.Group)
                 .HasForeignKey(n => n.GroupId)
                 .OnDelete(DeleteBehavior.Restrict);
-            
+
             builder.Entity<GroupDb>()
                 .HasMany(n => n.Users)
                 .WithOne(n => n.Group)

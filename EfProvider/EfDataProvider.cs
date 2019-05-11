@@ -41,10 +41,10 @@ namespace EfProvider
 
         public Task<T> InsertAsync<T>(T entity) where T : class, IEntity
         {
-            return ExecuteCommand(entity_ =>
+            return ExecuteCommand(state =>
             {
-                Add(entity_);
-                return _dbContext.SaveChangesAsync().ContinueWith(_ => entity_);
+                Add(state);
+                return _dbContext.SaveChangesAsync().ContinueWith(_ => state);
             }, state: entity);
         }
 
@@ -59,28 +59,31 @@ namespace EfProvider
 
         public Task DeleteAsync<T>(T entity) where T : class, IEntity
         {
-            return ExecuteCommand(entity_ =>
+            return ExecuteCommand(state =>
             {
-                _dbContext.Set<T>().Remove(entity_);
+                _dbContext.Set<T>().Remove(state);
                 return _dbContext.SaveChangesAsync();
             }, state: entity);
         }
 
         public Task DeleteByIdAsync<T, TKey>(TKey id) where T : class, IEntity, IEntity<TKey> where TKey : IComparable
         {
-            return ExecuteCommand(async id_ =>
+            return ExecuteCommand(async state =>
             {
-                var entity = await _dbContext.Set<T>().Where(t => id_.Equals(t.Id)).SingleAsync().ConfigureAwait(false);
+                var entity = await _dbContext.Set<T>().Where(t => state.Equals(t.Id)).SingleAsync()
+                    .ConfigureAwait(false);
                 _dbContext.Set<T>().Remove(entity);
                 return await _dbContext.SaveChangesAsync().ConfigureAwait(false);
             }, state: id);
         }
 
-        public Task SetDeleteAsync<T, TKey>(TKey id) where T : class, IEntity, IDeletedUtc, IEntity<TKey> where TKey : IComparable
+        public Task SetDeleteAsync<T, TKey>(TKey id) where T : class, IEntity, IDeletedUtc, IEntity<TKey>
+            where TKey : IComparable
         {
-            return ExecuteCommand(async id_ =>
+            return ExecuteCommand(async state =>
             {
-                var entity = await _dbContext.Set<T>().Where(t => id_.Equals(t.Id)).SingleAsync().ConfigureAwait(false);
+                var entity = await _dbContext.Set<T>().Where(t => state.Equals(t.Id)).SingleAsync()
+                    .ConfigureAwait(false);
                 entity.DeletedUtc = DateTime.UtcNow;
                 UpdateEntity(entity, ignoreSystemProps: false);
                 return await _dbContext.SaveChangesAsync().ConfigureAwait(false);
@@ -93,12 +96,13 @@ namespace EfProvider
 
         public Task BatchInsertAsync<T>(IEnumerable<T> entities) where T : class, IEntity
         {
-            return ExecuteCommand(entities_ =>
+            return ExecuteCommand(state =>
             {
-                foreach (var entity in entities_)
+                foreach (var entity in state)
                 {
                     Add(entity);
                 }
+
                 return _dbContext.SaveChangesAsync();
             }, state: entities);
         }
@@ -111,24 +115,27 @@ namespace EfProvider
                 {
                     UpdateEntity(entity, state.ignoreSystemProps);
                 }
+
                 return _dbContext.SaveChangesAsync();
             }, state: (entities, ignoreSystemProps));
         }
 
         public Task BatchDeleteAsync<T>(IEnumerable<T> entities) where T : class, IEntity
         {
-            return ExecuteCommand(entities_ =>
+            return ExecuteCommand(state =>
             {
-                _dbContext.Set<T>().RemoveRange(entities_);
+                _dbContext.Set<T>().RemoveRange(state);
                 return _dbContext.SaveChangesAsync();
             }, state: entities);
         }
 
-        public Task BatchDeleteByIdsAsync<T, TKey>(IEnumerable<TKey> ids) where T : class, IEntity, IEntity<TKey> where TKey : IComparable
+        public Task BatchDeleteByIdsAsync<T, TKey>(IEnumerable<TKey> ids) where T : class, IEntity, IEntity<TKey>
+            where TKey : IComparable
         {
-            return ExecuteCommand(async ids_ =>
+            return ExecuteCommand(async state =>
             {
-                var entity = await _dbContext.Set<T>().Where(t => ids_.Contains(t.Id)).ToArrayAsync().ConfigureAwait(false);
+                var entity = await _dbContext.Set<T>().Where(t => state.Contains(t.Id)).ToArrayAsync()
+                    .ConfigureAwait(false);
                 _dbContext.Set<T>().RemoveRange(entity);
                 return await _dbContext.SaveChangesAsync().ConfigureAwait(false);
             }, state: ids);
@@ -138,9 +145,10 @@ namespace EfProvider
             where T : class, IEntity, IDeletedUtc, IEntity<TKey>
             where TKey : IComparable
         {
-            return ExecuteCommand(async ids_ =>
+            return ExecuteCommand(async state =>
             {
-                var entities = await _dbContext.Set<T>().Where(t => ids_.Contains(t.Id)).ToArrayAsync().ConfigureAwait(false);
+                var entities = await _dbContext.Set<T>().Where(t => state.Contains(t.Id)).ToArrayAsync()
+                    .ConfigureAwait(false);
 
                 foreach (var entity in entities)
                 {
@@ -173,7 +181,8 @@ namespace EfProvider
             return InnerSafeExecuteAsync(EmptyResultWrapper, level, retryCount);
         }
 
-        private async Task<T> InnerSafeExecuteAsync<T>([InstantHandle] Func<IDataProvider, Task<T>> action, IsolationLevel level, int retryCount)
+        private async Task<T> InnerSafeExecuteAsync<T>([InstantHandle] Func<IDataProvider, Task<T>> action,
+            IsolationLevel level, int retryCount)
         {
             int count = 0;
             do
@@ -196,10 +205,10 @@ namespace EfProvider
                         await Task.Delay(TimeSpan.FromSeconds(1)).ConfigureAwait(false);
                         continue;
                     }
+
                     throw;
                 }
-            }
-            while (true);
+            } while (true);
         }
 
         #endregion
@@ -215,6 +224,7 @@ namespace EfProvider
             {
                 updatedUtc.UpdatedUtc = DateTime.UtcNow;
             }
+
             _dbContext.Set<T>().Add(entity);
         }
 
@@ -242,7 +252,7 @@ namespace EfProvider
             entityEntry.State = EntityState.Modified;
         }
 
-        private async Task<T> ExecuteCommand<T, Tstate>(Func<Tstate, Task<T>> func, Tstate state)
+        private async Task<T> ExecuteCommand<T, TState>(Func<TState, Task<T>> func, TState state)
         {
             try
             {

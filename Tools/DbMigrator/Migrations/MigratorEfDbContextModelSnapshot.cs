@@ -31,6 +31,8 @@ namespace DbMigrator.Migrations
 
                     b.Property<DateTime>("CreatedUtc");
 
+                    b.Property<int>("CreatorId");
+
                     b.Property<DateTime?>("DeletedUtc");
 
                     b.Property<string>("Name")
@@ -41,6 +43,8 @@ namespace DbMigrator.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("CreatedUtc");
+
+                    b.HasIndex("CreatorId");
 
                     b.HasIndex("DeletedUtc");
 
@@ -151,6 +155,14 @@ namespace DbMigrator.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("UserProfiles");
+                });
+
+            modelBuilder.Entity("DbModel.GroupDb", b =>
+                {
+                    b.HasOne("DbModel.UserDb", "Creator")
+                        .WithMany("Creations")
+                        .HasForeignKey("CreatorId")
+                        .OnDelete(DeleteBehavior.Restrict);
                 });
 
             modelBuilder.Entity("DbModel.MessageDb", b =>

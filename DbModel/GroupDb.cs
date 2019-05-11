@@ -12,6 +12,7 @@ namespace DbModel
     public class GroupDb : IEntity<long>, ICreatedUtc, IUpdatedUtc, IDeletedUtc
     {
         public long Id { get; set; }
+        public int CreatorId { get; set; }
 
         [StringLength(120)]
         public string Name { get; set; }
@@ -23,6 +24,9 @@ namespace DbModel
         public DateTime UpdatedUtc { get; set; }
         public DateTime? DeletedUtc { get; set; }
 
+
+        [ForeignKey(nameof(CreatorId))]
+        public UserDb Creator { get; set; }
 
         public ICollection<MessageDb> Messages { get; set; }
         public ICollection<UserGroupDb> Users { get; set; }

@@ -32,6 +32,7 @@ namespace DbModel
 
         public UserProfileDb Profile { get; set; }
         public ICollection<UserGroupDb> Groups { get; set; }
+        public ICollection<GroupDb> Creations { get; set; }
         public ICollection<UserGroupDb> Invitations { get; set; }
         public ICollection<MessageDb> Messages { get; set; }
     }
