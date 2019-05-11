@@ -11,8 +11,8 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace DbMigrator.Migrations
 {
     [DbContext(typeof(DbContextFactory.MigratorEfDbContext))]
-    [Migration("20190510142503_Create_User")]
-    partial class CreateUser
+    [Migration("20190511113737_Init")]
+    partial class Init
     {
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
@@ -60,6 +60,8 @@ namespace DbMigrator.Migrations
             modelBuilder.Entity("DbModel.UserProfileDb", b =>
                 {
                     b.Property<int>("Id");
+
+                    b.Property<string>("Avatar");
 
                     b.Property<Gender>("Gender");
 

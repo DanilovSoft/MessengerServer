@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 using DbModel;
 using DbModel.DbTypes;
@@ -66,6 +67,7 @@ namespace DataGenerator
                         Password = "123456",
                         Profile = new UserProfileDb
                         {
+                            //Id = id,
                             Gender = Gender.Undefined,
                             Avatar = _avatars[i % _avatars.Length].ToString()
                         }

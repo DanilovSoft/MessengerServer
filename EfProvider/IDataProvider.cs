@@ -18,9 +18,6 @@ namespace EfProvider
         /// <summary>
         /// Пакетная вставка записей в БД.
         /// </summary>
-        /// <typeparam name="T"></typeparam>
-        /// <param name="entities"></param>
-        /// <returns></returns>
         Task BatchInsertAsync<T>(IEnumerable<T> entities) where T : class, IEntity;
 
         Task<T> UpdateAsync<T>(T entity, bool ignoreSystemProps = true) where T : class, IEntity;

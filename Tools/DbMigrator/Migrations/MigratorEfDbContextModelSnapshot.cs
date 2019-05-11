@@ -59,6 +59,8 @@ namespace DbMigrator.Migrations
                 {
                     b.Property<int>("Id");
 
+                    b.Property<string>("Avatar");
+
                     b.Property<Gender>("Gender");
 
                     b.HasKey("Id");

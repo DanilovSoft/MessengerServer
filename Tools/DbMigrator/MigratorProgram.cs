@@ -31,7 +31,7 @@ namespace DbMigrator
                 {"migrate", s => Migrate()}
             };
 
-            if (args.Any() == false)
+            if (args.Length == 0)
             {
                 Console.WriteLine("Support parameters");
                 dataOptions.WriteOptionDescriptions(Console.Out);
@@ -64,7 +64,7 @@ namespace DbMigrator
 
             var modelStore = new ModelStore();
 
-            ILoggerFactory loggerFactory = new LoggerFactory();
+            var loggerFactory = new LoggerFactory();
             loggerFactory.AddConsole(configuration.GetSection("Logging"));
             loggerFactory.AddDebug();
 

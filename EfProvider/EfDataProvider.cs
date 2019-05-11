@@ -219,7 +219,6 @@ namespace EfProvider
             {
                 updatedUtc.UpdatedUtc = DateTime.UtcNow;
             }
-
             _dbContext.Set<T>().Add(entity);
         }
 
