@@ -4,15 +4,17 @@ using DbMigrator;
 using DbModel.DbTypes;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
 namespace DbMigrator.Migrations
 {
     [DbContext(typeof(DbContextFactory.MigratorEfDbContext))]
-    partial class MigratorEfDbContextModelSnapshot : ModelSnapshot
+    [Migration("20190510142503_Create_User")]
+    partial class CreateUser
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -58,10 +60,6 @@ namespace DbMigrator.Migrations
             modelBuilder.Entity("DbModel.UserProfileDb", b =>
                 {
                     b.Property<int>("Id");
-
-                    b.Property<string>("AvatarUrl");
-
-                    b.Property<string>("DisplayName");
 
                     b.Property<Gender>("Gender");
 
