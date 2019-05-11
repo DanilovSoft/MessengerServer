@@ -8,7 +8,7 @@ using EfProvider;
 
 namespace DataGenerator
 {
-    public class DataGenerator
+    public sealed class DataGenerator
     {
         /// <summary>
         /// “естовые аватарки пользователей.
@@ -44,7 +44,7 @@ namespace DataGenerator
         {
             using (var transaction = _provider.Transaction())
             {
-                await UserAsync();
+                await _provider.BatchInsertAsync(UserAsync());
 
                 transaction.Commit();
             }
@@ -53,30 +53,26 @@ namespace DataGenerator
         /// <summary>
         ///  —оздает тетстовых пользователей в базе.
         /// </summary>
-        private Task UserAsync()
+        private IEnumerable<UserDb> UserAsync()
         {
-            IEnumerable<UserDb> CreateUsers()
+            for (var i = 0; i < 10; i++)
             {
-                for (var i = 0; i < 10; i++)
+                int id = i + 1;
+                var userDb = new UserDb
                 {
-                    int id = i + 1;
-                    var userDb = new UserDb
+                    Id = id,
+                    Login = $"Test{id}",
+                    Password = "123456",
+                    Profile = new UserProfileDb
                     {
-                        Id = id,
-                        Login = $"Test{id}",
-                        Password = "123456",
-                        Profile = new UserProfileDb
-                        {
-                            //Id = id,
-                            Gender = Gender.Undefined,
-                            Avatar = _avatars[i % _avatars.Length].ToString()
-                        }
-                    };
-                    userDb.NormalLogin = userDb.Login.ToLower();
-                    yield return userDb;
-                }
+                        //Id = id,
+                        Gender = Gender.Undefined,
+                        Avatar = _avatars[i % _avatars.Length].ToString()
+                    }
+                };
+                userDb.NormalLogin = userDb.Login.ToLower();
+                yield return userDb;
             }
-            return _provider.BatchInsertAsync(CreateUsers());
         }
     }
 }
