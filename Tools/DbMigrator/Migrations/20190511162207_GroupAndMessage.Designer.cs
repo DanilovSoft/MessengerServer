@@ -11,7 +11,7 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace DbMigrator.Migrations
 {
     [DbContext(typeof(DbContextFactory.MigratorEfDbContext))]
-    [Migration("20190511153249_GroupAndMessage")]
+    [Migration("20190511162207_GroupAndMessage")]
     partial class GroupAndMessage
     {
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -33,6 +33,8 @@ namespace DbMigrator.Migrations
 
                     b.Property<DateTime>("CreatedUtc");
 
+                    b.Property<int>("CreatorId");
+
                     b.Property<DateTime?>("DeletedUtc");
 
                     b.Property<string>("Name")
@@ -43,6 +45,8 @@ namespace DbMigrator.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("CreatedUtc");
+
+                    b.HasIndex("CreatorId");
 
                     b.HasIndex("DeletedUtc");
 
@@ -153,6 +157,14 @@ namespace DbMigrator.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("UserProfiles");
+                });
+
+            modelBuilder.Entity("DbModel.GroupDb", b =>
+                {
+                    b.HasOne("DbModel.UserDb", "Creator")
+                        .WithMany("Creations")
+                        .HasForeignKey("CreatorId")
+                        .OnDelete(DeleteBehavior.Restrict);
                 });
 
             modelBuilder.Entity("DbModel.MessageDb", b =>

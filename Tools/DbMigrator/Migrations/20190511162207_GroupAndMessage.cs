@@ -12,6 +12,7 @@ namespace DbMigrator.Migrations
                 columns: table => new
                 {
                     Id = table.Column<long>(nullable: false),
+                    CreatorId = table.Column<int>(nullable: false),
                     Name = table.Column<string>(maxLength: 120, nullable: true),
                     AvatarUrl = table.Column<string>(nullable: true),
                     CreatedUtc = table.Column<DateTime>(nullable: false),
@@ -21,6 +22,12 @@ namespace DbMigrator.Migrations
                 constraints: table =>
                 {
                     table.PrimaryKey("PK_Groups", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_Groups_Users_CreatorId",
+                        column: x => x.CreatorId,
+                        principalTable: "Users",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
                 });
 
             migrationBuilder.CreateTable(
@@ -89,6 +96,11 @@ namespace DbMigrator.Migrations
                 name: "IX_Groups_CreatedUtc",
                 table: "Groups",
                 column: "CreatedUtc");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Groups_CreatorId",
+                table: "Groups",
+                column: "CreatorId");
 
             migrationBuilder.CreateIndex(
                 name: "IX_Groups_DeletedUtc",
