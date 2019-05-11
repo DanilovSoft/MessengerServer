@@ -22,8 +22,6 @@ namespace MessengerServer.Controllers
         // Возвращает список контактов пользователя.
         public Task<ChatUser[]> GetConversations()
         {
-            
-
             return Task.FromResult(Array.Empty<ChatUser>());
         }
 

@@ -51,7 +51,7 @@ namespace DataGenerator
                 .RuleFor(p => p.NormalLogin, (f, u) => u.Login.ToLower())
                 .RuleFor(p => p.Profile, () => profileFaker);
 
-            var userDbs = userFaker.Generate(10);
+            List<UserDb> userDbs = userFaker.Generate(10);
             return _provider.BatchInsertAsync(userDbs);
         }
 

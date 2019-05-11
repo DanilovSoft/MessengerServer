@@ -39,7 +39,7 @@ namespace wRPC
         /// </summary>
         protected Dictionary<string, Type> Controllers;
 
-        private volatile SocketQueue _socket;
+        private protected volatile SocketQueue _socket;
         /// <summary>
         /// Является <see langword="volatile"/>.
         /// </summary>
@@ -177,7 +177,7 @@ namespace wRPC
         /// </summary>
         /// <returns></returns>
         private protected abstract Task<SocketQueue> GetOrCreateConnectionAsync();
-        private protected abstract void OnDisconnect();
+        private protected abstract void OnDisconnect(SocketQueue socketQueue);
 
         /// <summary>
         /// Отправляет запрос о ожидает его ответ.
@@ -257,6 +257,7 @@ namespace wRPC
                         catch (Exception ex)
                         // Обрыв соединения.
                         {
+                            // Оповестить об обрыве.
                             AtomicDisconnect(socketQueue, ex);
 
                             // Завершить поток.
@@ -273,6 +274,7 @@ namespace wRPC
                             // Сообщить потокам что удалённая сторона выполнила закрытие соединения.
                             var socketClosedException = new SocketClosedException(exceptionMessage);
 
+                            // Оповестить об обрыве.
                             AtomicDisconnect(socketQueue, socketClosedException);
 
                             // Завершить поток.
@@ -303,16 +305,16 @@ namespace wRPC
                         if (deserializationException == null)
                         // Запрос десериализован без ошибок.
                         {
-                            // Начать выполнение запроса отдельным потоком.
+                            // Начать выполнение запроса в отдельном потоке.
                             StartProcessRequestAsync(socketQueue, message);
                         }
                         else
                         // Произошла ошибка при разборе запроса.
                         {
                             // Подготоваить ответ с ошибкой.
-                            Message errorResponse = message.ErrorResponse($"Unable to deserialize type \"{nameof(Message)}\"", ErrorCode.InvalidRequestFormat);
+                            Message errorResponse = message.ErrorResponse($"Unable to deserialize type \"{nameof(Message)}\".", ErrorCode.InvalidRequestFormat);
 
-                            // Начать отправку результата с ошибкой отдельным потоком.
+                            // Начать отправку результата с ошибкой в отдельном потоке.
                             StartSendErrorResponse(socketQueue, errorResponse);
                         }
                     }
@@ -336,11 +338,12 @@ namespace wRPC
                             {
                                 // Отключаемся от сокета с небольшим таймаутом.
                                 using (var cts = new CancellationTokenSource(3000))
-                                    await socketQueue.WebSocket.CloseAsync(WebSocketCloseStatus.ProtocolError, "Ошибка десериализации ответа", cts.Token);
+                                    await socketQueue.WebSocket.CloseAsync(WebSocketCloseStatus.ProtocolError, "Ошибка десериализации ответа.", cts.Token);
                             }
                             catch (Exception ex)
                             // Злой обрыв соединения.
                             {
+                                // Оповестить об обрыве.
                                 AtomicDisconnect(socketQueue, ex);
 
                                 // Завершить поток.
@@ -372,9 +375,11 @@ namespace wRPC
                 // Закрывает соединение.
                 socketQueue.Dispose();
 
+                // Отменить все операции контроллеров связанных с текущим соединением.
                 _cts.Cancel();
 
-                OnDisconnect();
+                // Сообщить наследникам об обрыве.
+                OnDisconnect(socketQueue);
             }
         }
 
@@ -557,7 +562,7 @@ namespace wRPC
                 // Сериализовать и отправить результат.
                 await SendMessageAsync(tuple.socketQueue, response);
 
-            }, state: (socketQueue_, message_));
+            }, state: (socketQueue_, message_)); // Без замыкания.
         }
 
         /// <summary>
@@ -605,15 +610,23 @@ namespace wRPC
         /// </summary>
         private protected async Task SendMessageAsync(SocketQueue socketQueue, Message message)
         {
+            // На текущем этапе сокет может быть уже уничтожен другим потоком
+            // В результате чего в текущем потоке случилась ошибка но отправлять её не нужно.
+            if (socketQueue.IsDisposed)
+                return;
+
             using (var arrayPool = message.Serialize(out int size))
             {
+                var segment = new ArraySegment<byte>(arrayPool.Buffer, 0, size);
+
                 try
                 {
-                    await socketQueue.WebSocket.SendAsync(new ArraySegment<byte>(arrayPool.Buffer, 0, size), WebSocketMessageType.Binary, endOfMessage: true, CancellationToken.None);
+                    await socketQueue.WebSocket.SendAsync(segment, WebSocketMessageType.Binary, endOfMessage: true, CancellationToken.None);
                 }
                 catch (Exception ex)
                 // Обрыв соединения.
                 {
+                    // Оповестить об обрыве.
                     AtomicDisconnect(socketQueue, ex);
                 }   
             }
@@ -627,7 +640,10 @@ namespace wRPC
 
                 SocketQueue socket = Socket;
                 if (socket != null)
+                {
+                    // Оповестить об обрыве.
                     AtomicDisconnect(socket, new ObjectDisposedException(GetType().Name));
+                }
             }
         }
     }

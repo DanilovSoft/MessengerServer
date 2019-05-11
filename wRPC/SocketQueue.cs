@@ -11,6 +11,7 @@ namespace wRPC
         private int _state;
         private int _disposed;
         public WebSocket WebSocket { get; }
+        public bool IsDisposed => Volatile.Read(ref _disposed) == 1;
 
         /// <summary>
         /// Коллекция запросов ожидающие ответ от удалённой стороны.

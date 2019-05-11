@@ -200,7 +200,7 @@ namespace wRPC
             } while (true);
         }
 
-        private protected override void OnDisconnect()
+        private protected override void OnDisconnect(SocketQueue socketQueue)
         {
             // Копируем volatile ссылку.
             UserConnections userConnections = UserConnections;

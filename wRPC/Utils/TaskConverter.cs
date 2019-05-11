@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Reflection;
 using System.Text;
 using System.Threading.Tasks;
@@ -29,12 +30,17 @@ namespace wRPC
 
         private static object InnerConvertTask<T>(Task<object> task)
         {
-            return task.ContinueWith(t =>
+            return task.ContinueWith(Convert<T>);
+        }
+
+        [DebuggerStepThrough]
+        private static T Convert<T>(Task<object> task)
+        {
+            using (task)
             {
-                var result = (T)t.GetAwaiter().GetResult();
-                t.Dispose();
+                var result = (T)task.GetAwaiter().GetResult();
                 return result;
-            });
+            }
         }
 
         private static Func<Task<object>, object> Factory(Type key)
