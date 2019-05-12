@@ -12,6 +12,11 @@ namespace wRPC
         /// </summary>
         public ServerContext Context { get; internal set; }
 
+        /// <summary>
+        /// Шорткат для Context.UserId.Value.
+        /// </summary>
+        public int UserId => Context.UserId.Value;
+
         // ctor.
         public ServerController()
         {

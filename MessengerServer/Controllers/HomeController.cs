@@ -28,18 +28,20 @@ namespace MessengerServer.Controllers
         {
             var groups = await _dataProvider
                 .Get<UserGroupDb>()
-                .Where(x => x.UserId == Context.UserId.Value)
+                .Where(x => x.UserId == UserId) // Только чаты пользователя.
                 .Select(x => x.Group)
                 .Include(x => x.Messages)
+                .Include(x => x.Users)
                 .Select(x => new
                 {
                     Group = x,
-                    LastMessage = x.Messages.OrderBy(y => y.CreatedUtc).LastOrDefault(),
+                    LastMessage = x.Messages.OrderByDescending(y => y.CreatedUtc).FirstOrDefault(),
                 })
                 .ToArrayAsync();
 
             return groups.Select(x => new ChatUser
             {
+                UserId = 0, // Ид собеседника
                 AvatarUrl = new Uri(x.Group.AvatarUrl),
                 ChatId = x.Group.Id,
                 Name = x.Group.Name,
@@ -55,10 +57,39 @@ namespace MessengerServer.Controllers
             return new ChatMessage
             {
                 Text = message.Text,
+                CreatedUtcDate = message.CreatedUtc,
+                IsMy = message.UserId == UserId,
             };
         }
 
-        public Task SendMessage(string message, int userId)
+        /// <summary>
+        /// Запрос пользователя на загрузку части истории сообщений.
+        /// </summary>
+        /// <param name="chatId">Идентификатор чата пользователя.</param>
+        /// <param name="count">Сколько сообщений нужно загрузить.</param>
+        /// <param name="topMessageDate">Дата верхнего сообщения в истории от которого нужно начать загрузку.</param>
+        public async Task<ChatMessage[]> GetHistory(long chatId, int count, DateTime? topMessageDate)
+        {
+            IQueryable<MessageDb> query = _dataProvider
+                .Get<GroupDb>()
+                .Where(x => x.Id == chatId)
+                .Where(x => x.Users.Any(y => y.UserId == Context.UserId.Value)) // Убедиться что пользователь входит в этот чат.
+                .SelectMany(x => x.Messages)
+                .OrderByDescending(x => x.CreatedUtc);
+
+            if(topMessageDate != null)
+            {
+                query = query.Where(x => x.CreatedUtc > topMessageDate.Value);
+            }
+
+            var messages = await query
+                .Take(count)
+                .ToArrayAsync();
+
+            return messages.Select(x => FromMessageDb(x)).ToArray();
+        }
+
+        public async Task<SendMessageResult> SendMessage(string message, int userId)
         {
             Console.WriteLine($"Получено сообщение: \"{message}\"");
 
@@ -84,7 +115,8 @@ namespace MessengerServer.Controllers
                     }, null);
                 }
             }
-            return Task.CompletedTask;
+
+            throw new NotImplementedException();
         }
     }
 }

@@ -11,6 +11,9 @@ namespace DbModel
     {
         public Guid Id { get; set; }
         public long GroupId { get; set; }
+        /// <summary>
+        /// Пользователь создавший сообщение.
+        /// </summary>
         public int UserId { get; set; }
         public string Text { get; set; }
         public string FileUrl { get; set; }

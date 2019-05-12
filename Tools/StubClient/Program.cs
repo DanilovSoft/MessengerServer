@@ -14,11 +14,13 @@ namespace StubClient
         static async Task Main()
         {
             Console.Title = "Клиент";
+
             #region Debug: Ждем запуск сервера
 
             Mutex mutex = null;
             SpinWait.SpinUntil(() => Mutex.TryOpenExisting($"MessengerServer_Port:{Port}", out mutex));
             mutex.Dispose();
+
             #endregion
 
             using (var client = new ClientConnection("127.0.0.1", Port))

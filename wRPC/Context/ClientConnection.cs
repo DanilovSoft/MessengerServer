@@ -41,7 +41,7 @@ namespace wRPC
         /// </summary>
         public ClientConnection(string host, int port) : this(Assembly.GetCallingAssembly(), new Uri($"ws://{host}:{port}"))
         {
-
+            
         }
 
         /// <summary>
@@ -80,7 +80,7 @@ namespace wRPC
         /// <summary>
         /// Выполнить подключение сокета если еще не подключен.
         /// </summary>
-        private protected async Task<SocketQueue> ConnectIfNeededAsync()
+        private async Task<SocketQueue> ConnectIfNeededAsync()
         {
             // Копия volatile ссылки.
             SocketQueue socketQueue = Socket;

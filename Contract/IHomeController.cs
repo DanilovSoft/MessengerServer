@@ -10,7 +10,8 @@ namespace Contract
     [ControllerContract("Home")]
     public interface IHomeController
     {
-        Task SendMessage(string message, int userId);
+        Task<SendMessageResult> SendMessage(string message, int userId);
         Task<ChatUser[]> GetConversations();
+        Task<ChatMessage[]> GetHistory(long chatId, int count, DateTime? topMessageDate);
     }
 }

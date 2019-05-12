@@ -95,9 +95,11 @@ namespace wRPC
         public sealed class Arg
         {
             #region Debug
+
             [JsonIgnore]
             [DebuggerBrowsable(DebuggerBrowsableState.Never)]
             private string DebugDisplay => $"\"{ParameterName}\": {Value}";
+
             #endregion
 
             [JsonProperty(Order = 1)]
@@ -112,7 +114,7 @@ namespace wRPC
             public Arg(string parameterName, object value)
             {
                 ParameterName = parameterName;
-                Value = JToken.FromObject(value);
+                Value = value == null ? null : JToken.FromObject(value);
             }
         }
     }
