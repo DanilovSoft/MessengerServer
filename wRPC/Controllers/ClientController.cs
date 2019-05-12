@@ -9,6 +9,6 @@ namespace wRPC
         /// <summary>
         /// Контекст подключения на стороне клиента.
         /// </summary>
-        public ClientContext Context { get; internal set; }
+        public ClientConnection Context { get; internal set; }
     }
 }

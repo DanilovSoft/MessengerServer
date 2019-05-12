@@ -11,11 +11,11 @@ using DbModel;
 using DbModel.Store;
 using EfProvider;
 using wRPC;
-using wRPC.Contract;
+using Contract.Dto;
 
 namespace MessengerServer.Controllers
 {
-    internal class AuthController : ServerController, IAuthController
+    public sealed class AuthController : ServerController, IAuthController
     {
         private readonly IDataProvider _dataProvider;
 
@@ -25,17 +25,18 @@ namespace MessengerServer.Controllers
         }
 
         [AllowAnonymous]
-        public async Task<BearerToken> Authorize(string login, string password)
+        public async Task<AuthorizationResult> Authorize(string login, string password)
         {
-            Dto.User user = await _dataProvider.Get<UserDb>()
+            var user = await _dataProvider.Get<UserDb>()
                 .Where(x => 
                     x.NormalLogin == login.ToLower() &&
                     x.Password == PostgresEfExtensions.Crypt(password, x.Password)
                 )
-                .Select(x => new Dto.User
+                .Select(x => new
                 {
-                    Id = x.Id,
-                    Name = x.Login
+                    x.Id,
+                    Name = x.Login,
+                    ImageUrl = x.Profile.AvatarUrl,
                 })
                 .SingleOrDefaultAsync(Context.CancellationToken);
 
@@ -47,7 +48,13 @@ namespace MessengerServer.Controllers
 
             Console.WriteLine($"Авторизован пользователь: \"{login}\"");
 
-            return token;
+            return new AuthorizationResult
+            {
+                Token = token,
+                UserId = user.Id,
+                UserName = user.Name,
+                ImageUrl = new Uri(user.ImageUrl)
+            };
         }
 
         [AllowAnonymous]

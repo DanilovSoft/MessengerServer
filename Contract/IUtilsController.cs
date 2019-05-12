@@ -7,9 +7,9 @@ using wRPC;
 
 namespace Contract
 {
-    [ControllerContract("Auth")]
-    public interface IAuthController
+    [ControllerContract("Utils")]
+    public interface IUtilsController
     {
-        Task<AuthorizationResult> Authorize(string login, string password);
+        Task<byte[]> ShrinkImage(ShrinkImageRequest shrinkImage);
     }
 }

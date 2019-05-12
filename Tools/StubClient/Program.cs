@@ -1,9 +1,9 @@
 ﻿using System;
 using System.Threading;
 using System.Threading.Tasks;
-using wRPC.Contract;
 using wRPC;
 using Contract;
+using Contract.Dto;
 
 namespace StubClient
 {
@@ -21,14 +21,22 @@ namespace StubClient
             mutex.Dispose();
             #endregion
 
-            using (var client = new Client("127.0.0.1", Port))
+            using (var client = new ClientConnection("127.0.0.1", Port))
             {
                 var authController = client.GetProxy<IAuthController>();
                 var homeController = client.GetProxy<IHomeController>();
+                var utilsController = client.GetProxy<IUtilsController>();
 
                 Console.WriteLine("Авторизация...");
-                BearerToken token = await authController.Authorize(login: "Test1", password: "123456");
-                client.BearerToken = token.Token;
+                AuthorizationResult token = await authController.Authorize(login: "Test1", password: "123456");
+
+                await utilsController.ShrinkImage(new ShrinkImageRequest
+                {
+                    ImageUri = new Uri("https://s3.amazonaws.com/uifaces/faces/twitter/adellecharles/128.jpg"),
+                    Size = 120
+                });
+
+                var users = await homeController.GetConversations();
 
                 while (true)
                 {

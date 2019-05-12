@@ -44,7 +44,7 @@ namespace EfProvider
             return ExecuteCommand(state =>
             {
                 Add(state);
-                return _dbContext.SaveChangesAsync().ContinueWith(_ => state);
+                return _dbContext.SaveChangesAsync().ContinueWith(_ => state, TaskContinuationOptions.OnlyOnRanToCompletion);
             }, state: entity);
         }
 
@@ -53,7 +53,7 @@ namespace EfProvider
             return ExecuteCommand(state =>
             {
                 UpdateEntity(state.entity, state.ignoreSystemProps);
-                return _dbContext.SaveChangesAsync().ContinueWith(_ => state.entity);
+                return _dbContext.SaveChangesAsync().ContinueWith(_ => state.entity, TaskContinuationOptions.OnlyOnRanToCompletion);
             }, state: (entity, ignoreSystemProps));
         }
 
@@ -175,7 +175,7 @@ namespace EfProvider
         {
             Task<object> EmptyResultWrapper(IDataProvider db)
             {
-                return action(db).ContinueWith<object>(_ => null);
+                return action(db).ContinueWith<object>(_ => null, TaskContinuationOptions.OnlyOnRanToCompletion);
             }
 
             return InnerSafeExecuteAsync(EmptyResultWrapper, level, retryCount);

@@ -15,25 +15,52 @@ namespace wRPC
     /// Контекст клиентского соединения.
     /// </summary>
     [DebuggerDisplay("{DebugDisplay,nq}")]
-    public class ClientContext : Context
+    public sealed class ClientConnection : Context
     {
         #region Debug
+
         [DebuggerBrowsable(DebuggerBrowsableState.Never)]
         private string DebugDisplay => "{" + $"{{{GetType().Name}}}, Connected = {Socket != null}" + "}";
+        
         #endregion
+
         private readonly AsyncLock _asyncLock;
         private readonly Uri _uri;
         public byte[] BearerToken { get; set; }
+
+        /// <summary>
+        /// Создаёт контекст клиентского соединения.
+        /// </summary>
+        public ClientConnection(Uri uri) : this(Assembly.GetCallingAssembly(), uri)
+        {
+
+        }
+
+        /// <summary>
+        /// Создаёт контекст клиентского соединения.
+        /// </summary>
+        public ClientConnection(string host, int port) : this(Assembly.GetCallingAssembly(), new Uri($"ws://{host}:{port}"))
+        {
+
+        }
 
         /// <summary>
         /// Конструктор клиента.
         /// </summary>
         /// <param name="controllersAssembly">Сборка в которой осуществляется поиск контроллеров.</param>
         /// <param name="uri">Адрес сервера.</param>
-        internal ClientContext(Assembly controllersAssembly, Uri uri) : base(controllersAssembly)
+        internal ClientConnection(Assembly controllersAssembly, Uri uri) : base(controllersAssembly)
         {
             _uri = uri;
             _asyncLock = new AsyncLock();
+        }
+
+        /// <summary>
+        /// Производит предварительное подключение сокета к серверу.
+        /// </summary>
+        public Task ConnectAsync()
+        {
+            return ConnectIfNeededAsync();
         }
 
         /// <summary>
@@ -65,7 +92,7 @@ namespace wRPC
             using (await _asyncLock.LockAsync().ConfigureAwait(false))
             {
                 // Копия volatile ссылки.
-                socketQueue = Socket;
+                socketQueue = _socket;
 
                 // Необходима повторная проверка.
                 if (socketQueue == null)

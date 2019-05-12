@@ -68,11 +68,15 @@ namespace wRPC
             {
                 // Нельзя делать продолжение текущим потоком т.к. это затормозит/остановит диспетчер 
                 // или произойдет побег специального потока диспетчера.
-                ThreadPool.UnsafeQueueUserWorkItem(delegate
-                {
-                    continuation();
-                }, null);
+                ThreadPool.UnsafeQueueUserWorkItem(CallContinuation, continuation);
             }
+        }
+
+        [DebuggerStepThrough]
+        private void CallContinuation(object state)
+        {
+            var continuation = (Action)state;
+            continuation();
         }
 
         public void OnCompleted(Action continuation)

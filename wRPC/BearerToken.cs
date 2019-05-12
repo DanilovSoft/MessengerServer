@@ -6,7 +6,7 @@ using System.Text;
 namespace wRPC
 {
     [JsonObject]
-    public class BearerToken
+    public sealed class BearerToken
     {
         [JsonProperty]
         public byte[] Token;

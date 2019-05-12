@@ -7,16 +7,16 @@ namespace wRPC
 {
     internal readonly struct ArrayPool : IDisposable
     {
-        public byte[] Buffer { get; }
+        public byte[] Array { get; }
 
         public ArrayPool(int minimumLength)
         {
-            Buffer = ArrayPool<byte>.Shared.Rent(minimumLength);
+            Array = ArrayPool<byte>.Shared.Rent(minimumLength);
         }
 
         public void Dispose()
         {
-            ArrayPool<byte>.Shared.Return(Buffer);
+            ArrayPool<byte>.Shared.Return(Array);
         }
     }
 }

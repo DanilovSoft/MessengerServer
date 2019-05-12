@@ -19,7 +19,7 @@ namespace wRPC
         public static Dictionary<string, Type> FindAllControllers(Assembly assembly)
         {
             var controllers = new Dictionary<string, Type>(StringComparer.InvariantCultureIgnoreCase);
-            Type[] types = assembly.GetTypes();
+            Type[] types = assembly.GetExportedTypes();
 
             foreach (Type controllerType in types)
             {

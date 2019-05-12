@@ -22,7 +22,7 @@ namespace wRPC
         public static ArrayPool Serialize(this Message request, out int size)
         {
             var ar = new ArrayPool(4096);
-            using (var mem = new MemoryStream(ar.Buffer))
+            using (var mem = new MemoryStream(ar.Array))
             {
                 try
                 {

@@ -1,8 +1,11 @@
 ﻿
+using System;
+
 namespace Contract
 {
     public class ChatUser
     {
-        public int UserId { get; set; }
+        public long CrmId { get; set; }
+        public Uri AvatarUrl { get; set; }
     }
 }

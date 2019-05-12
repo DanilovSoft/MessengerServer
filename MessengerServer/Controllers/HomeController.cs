@@ -1,8 +1,11 @@
 ﻿using Contract;
+using DbModel;
 using EfProvider;
+using Microsoft.EntityFrameworkCore;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Linq;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -10,7 +13,7 @@ using wRPC;
 
 namespace MessengerServer.Controllers
 {
-    public class HomeController : ServerController, IHomeController
+    public sealed class HomeController : ServerController, IHomeController
     {
         private readonly IDataProvider _dataProvider;
 
@@ -20,9 +23,19 @@ namespace MessengerServer.Controllers
         }
 
         // Возвращает список контактов пользователя.
-        public Task<ChatUser[]> GetConversations()
+        public async Task<ChatUser[]> GetConversations()
         {
-            return Task.FromResult(Array.Empty<ChatUser>());
+            GroupDb[] groups = await _dataProvider
+                .Get<UserGroupDb>()
+                .Where(x => x.UserId == Context.UserId.Value)
+                .Select(x => x.Group)
+                .ToArrayAsync();
+
+            return groups.Select(x => new ChatUser
+            {
+                AvatarUrl = new Uri(x.AvatarUrl),
+                CrmId = x.Id,
+            }).ToArray();
         }
 
         public Task SendMessage(string message, int userId)

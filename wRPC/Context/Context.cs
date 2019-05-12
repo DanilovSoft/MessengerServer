@@ -22,6 +22,7 @@ namespace wRPC
     /// </summary>
     public abstract class Context : IDisposable
     {
+        private const int DefaultBufferSize = 4096;
         private const string ProtocolErrorMessage = "Произошла ошибка десериализации ответа от удалённой стороны," +
                             " поэтому соединение было аварийно закрыто.";
         public ServiceCollection IoC { get; }
@@ -38,7 +39,6 @@ namespace wRPC
         /// Хранит все доступные контроллеры. Не учитывает регистр.
         /// </summary>
         protected Dictionary<string, Type> Controllers;
-
         private protected volatile SocketQueue _socket;
         /// <summary>
         /// Является <see langword="volatile"/>.
@@ -52,7 +52,12 @@ namespace wRPC
         /// Токен отмены связанный с текущим соединением.
         /// </summary>
         public CancellationToken CancellationToken => _cts.Token;
-        private bool _disposed;
+        /// <summary>
+        /// Отправка сообщения <see cref="Message"/> должна выполняться только с захватом этой блокировки.
+        /// </summary>
+        private readonly AsyncLock _sendMessageLock = new AsyncLock();
+        private int _disposed;
+        private bool IsDisposed => Volatile.Read(ref _disposed) == 1;
 
         /// <summary>
         /// Конструктор клиента.
@@ -191,7 +196,7 @@ namespace wRPC
             using (var rentMem = new ArrayPool(4096))
             {
                 // Замена MemoryStream.
-                using (var stream = new MemoryStream(rentMem.Buffer))
+                using (var stream = new MemoryStream(rentMem.Array))
                 {
                     // Когда вызывает клиент то установить соединение или взять существующее.
                     if (socketQueue == null)
@@ -209,7 +214,7 @@ namespace wRPC
                     // Сериализуем запрос в память.
                     request.Serialize(stream);
 
-                    var segment = new ArraySegment<byte>(rentMem.Buffer, 0, (int)stream.Position);
+                    var segment = new ArraySegment<byte>(rentMem.Array, 0, (int)stream.Position);
 
                     // Отправка запроса.
                     await socketQueue.WebSocket.SendAsync(segment, WebSocketMessageType.Binary, true, CancellationToken.None).ConfigureAwait(false);
@@ -246,45 +251,56 @@ namespace wRPC
                     // Арендуем память на фрейм вебсокета.
                     using (var buffer = new ArrayPool(4096))
                     {
-                        #region Читаем фрейм веб-сокета.
-
                         WebSocketReceiveResult webSocketMessage;
-                        try
+                        using (var mem = new MemoryStream())
                         {
-                            // Читаем фрейм веб-сокета.
-                            webSocketMessage = await socketQueue.WebSocket.ReceiveAsync(new ArraySegment<byte>(buffer.Buffer), CancellationToken.None);
-                        }
-                        catch (Exception ex)
-                        // Обрыв соединения.
-                        {
-                            // Оповестить об обрыве.
-                            AtomicDisconnect(socketQueue, ex);
+                            var segment = new ArraySegment<byte>(buffer.Array);
+                            do
+                            {
+                                #region Читаем фрейм веб-сокета.
+                                try
+                                {
+                                    // Читаем фрейм веб-сокета.
+                                    webSocketMessage = await socketQueue.WebSocket.ReceiveAsync(segment, CancellationToken.None);
+                                }
+                                catch (Exception ex)
+                                // Обрыв соединения.
+                                {
+                                    // Оповестить об обрыве.
+                                    AtomicDisconnect(socketQueue, ex);
 
-                            // Завершить поток.
-                            return;
-                        }
-                        #endregion
+                                    // Завершить поток.
+                                    return;
+                                }
+                                #endregion
 
-                        // Другая сторона закрыла соединение.
-                        if (webSocketMessage.MessageType == WebSocketMessageType.Close)
-                        {
-                            // Сформировать причину закрытия соединения.
-                            string exceptionMessage = GetMessageFromCloseFrame(webSocketMessage);
+                                #region Проверка на Close.
 
-                            // Сообщить потокам что удалённая сторона выполнила закрытие соединения.
-                            var socketClosedException = new SocketClosedException(exceptionMessage);
+                                // Другая сторона закрыла соединение.
+                                if (webSocketMessage.MessageType == WebSocketMessageType.Close)
+                                {
+                                    // Сформировать причину закрытия соединения.
+                                    string exceptionMessage = GetMessageFromCloseFrame(webSocketMessage);
 
-                            // Оповестить об обрыве.
-                            AtomicDisconnect(socketQueue, socketClosedException);
+                                    // Сообщить потокам что удалённая сторона выполнила закрытие соединения.
+                                    var socketClosedException = new SocketClosedException(exceptionMessage);
 
-                            // Завершить поток.
-                            return;
-                        }
+                                    // Оповестить об обрыве.
+                                    AtomicDisconnect(socketQueue, socketClosedException);
 
-                        #region Десериализуем фрейм веб-сокета в сообщение протокола.
+                                    // Завершить поток.
+                                    return;
+                                }
+                                #endregion
 
-                        using (var mem = new MemoryStream(buffer.Buffer, 0, webSocketMessage.Count))
-                        {
+                                // Копирование фрейма в MemoryStream.
+                                mem.Write(buffer.Array, 0, webSocketMessage.Count);
+
+                            } while (!webSocketMessage.EndOfMessage);
+
+                            #region Десериализуем фрейм веб-сокета в сообщение протокола.
+
+                            mem.Position = 0;
                             try
                             {
                                 message = ExtensionMethods.Deserialize<Message>(mem);
@@ -295,8 +311,8 @@ namespace wRPC
                                 // Подготовить ошибку для дальнейшей обработки.
                                 deserializationException = ex;
                             }
+                            #endregion
                         }
-                        #endregion
                     }
 
                     if (message.IsRequest)
@@ -607,6 +623,7 @@ namespace wRPC
 
         /// <summary>
         /// Сериализует сообщение и отправляет в сокет. Вызывать только из фонового потока.
+        /// Не бросает исключения!
         /// </summary>
         private protected async Task SendMessageAsync(SocketQueue socketQueue, Message message)
         {
@@ -615,35 +632,104 @@ namespace wRPC
             if (socketQueue.IsDisposed)
                 return;
 
-            using (var arrayPool = message.Serialize(out int size))
+            using (var mem = new MemoryStream())
             {
-                var segment = new ArraySegment<byte>(arrayPool.Buffer, 0, size);
+                message.Serialize(mem);
+                int count = (int)mem.Length;
+                byte[] streamBuffer = mem.GetBuffer();
 
-                try
+                if (count <= DefaultBufferSize)
                 {
-                    await socketQueue.WebSocket.SendAsync(segment, WebSocketMessageType.Binary, endOfMessage: true, CancellationToken.None);
+                    var segment = new ArraySegment<byte>(streamBuffer, 0, count);
+
+                    try
+                    {
+                        // Может бросить ObjectDisposedException.
+                        using (await _sendMessageLock.LockAsync())
+                        {
+                            try
+                            {
+                                await socketQueue.WebSocket.SendAsync(segment, WebSocketMessageType.Binary, endOfMessage: true, CancellationToken.None);
+                            }
+                            catch (Exception ex)
+                            // Обрыв соединения.
+                            {
+                                // Оповестить об обрыве.
+                                AtomicDisconnect(socketQueue, ex);
+
+                                // Завершить поток.
+                                return;
+                            }
+                        }
+                    }
+                    catch (ObjectDisposedException)
+                    {
+                        // Может случиться если вызвали Context.Dispose().
+                    }
                 }
-                catch (Exception ex)
-                // Обрыв соединения.
+                else
+                // Размер сообщения больше чем дефолтный буффер.
                 {
-                    // Оповестить об обрыве.
-                    AtomicDisconnect(socketQueue, ex);
-                }   
+                    // Отправляем сообщение по частям.
+                    try
+                    {
+                        // Может бросить ObjectDisposedException.
+                        using (await _sendMessageLock.LockAsync())
+                        {
+                            int offset = 0;
+                            int bytesLeft = count;
+                            do
+                            {
+                                bool endOfMessage = false;
+                                int countToSend = DefaultBufferSize;
+                                if(countToSend >= bytesLeft)
+                                {
+                                    countToSend = bytesLeft;
+                                    endOfMessage = true;
+                                }
+
+                                var segment = new ArraySegment<byte>(streamBuffer, offset, countToSend);
+
+                                try
+                                {
+                                    await socketQueue.WebSocket.SendAsync(segment, WebSocketMessageType.Binary, endOfMessage, CancellationToken.None);
+                                }
+                                catch (Exception ex)
+                                // Обрыв соединения.
+                                {
+                                    // Оповестить об обрыве.
+                                    AtomicDisconnect(socketQueue, ex);
+
+                                    // Завершить поток.
+                                    return;
+                                }
+
+                                bytesLeft -= countToSend;
+                                offset += countToSend;
+
+                            } while (bytesLeft > 0);
+                        }
+                    }
+                    catch (ObjectDisposedException)
+                    {
+                        // Может случиться если вызвали Context.Dispose().
+                    }
+                }
             }
         }
 
         public virtual void Dispose()
         {
-            if (!_disposed)
+            if (Interlocked.CompareExchange(ref _disposed, 1, 0) == 0)
             {
-                _disposed = true;
-
                 SocketQueue socket = Socket;
                 if (socket != null)
                 {
                     // Оповестить об обрыве.
-                    AtomicDisconnect(socket, new ObjectDisposedException(GetType().Name));
+                    AtomicDisconnect(socket, new ObjectDisposedException(GetType().FullName));
                 }
+
+                _sendMessageLock.Dispose();
             }
         }
     }
