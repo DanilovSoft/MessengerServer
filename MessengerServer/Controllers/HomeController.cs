@@ -1,4 +1,5 @@
 ﻿using Contract;
+using Contract.Dto;
 using DbModel;
 using EfProvider;
 using Microsoft.EntityFrameworkCore;
@@ -25,17 +26,36 @@ namespace MessengerServer.Controllers
         // Возвращает список контактов пользователя.
         public async Task<ChatUser[]> GetConversations()
         {
-            GroupDb[] groups = await _dataProvider
+            var groups = await _dataProvider
                 .Get<UserGroupDb>()
                 .Where(x => x.UserId == Context.UserId.Value)
                 .Select(x => x.Group)
+                .Include(x => x.Messages)
+                .Select(x => new
+                {
+                    Group = x,
+                    LastMessage = x.Messages.OrderBy(y => y.CreatedUtc).LastOrDefault(),
+                })
                 .ToArrayAsync();
 
             return groups.Select(x => new ChatUser
             {
-                AvatarUrl = new Uri(x.AvatarUrl),
-                CrmId = x.Id,
+                AvatarUrl = new Uri(x.Group.AvatarUrl),
+                ChatId = x.Group.Id,
+                Name = x.Group.Name,
+                LastMessage = FromMessageDb(x.LastMessage),
             }).ToArray();
+        }
+
+        private ChatMessage FromMessageDb(MessageDb message)
+        {
+            if (message == null)
+                return null;
+
+            return new ChatMessage
+            {
+                Text = message.Text,
+            };
         }
 
         public Task SendMessage(string message, int userId)
