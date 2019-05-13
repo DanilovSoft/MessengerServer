@@ -30,21 +30,14 @@ namespace StubClient
                 var utilsController = client.GetProxy<IUtilsController>();
 
                 Console.WriteLine("Авторизация...");
-                AuthorizationResult token = await authController.Authorize(login: "Test1", password: "123456");
-
-                await utilsController.ShrinkImage(new ShrinkImageRequest
-                {
-                    ImageUri = new Uri("https://s3.amazonaws.com/uifaces/faces/twitter/adellecharles/128.jpg"),
-                    Size = 120
-                });
-
-                var users = await homeController.GetConversations();
+                AuthorizationResult token = await authController.Authorize(login: "Test2", password: "123456");
+                client.BearerToken = token.Token.Token;
 
                 while (true)
                 {
-                    Console.Write("Введите сообщение: ");
+                    Console.Write("Введите сообдение: ");
                     string line = Console.ReadLine();
-                    await homeController.SendMessage(message: line, userId: 123456);
+                    await homeController.SendMessage(line, 1);
                 }
             }
         }

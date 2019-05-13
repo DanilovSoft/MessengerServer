@@ -36,16 +36,17 @@ namespace MessengerServer.Controllers
                 {
                     Group = x,
                     LastMessage = x.Messages.OrderByDescending(y => y.CreatedUtc).FirstOrDefault(),
+                    GroupUserId = x.Users.Where(y => y.UserId != UserId).Select(y => y.UserId).FirstOrDefault(),
                 })
                 .ToArrayAsync();
 
             return groups.Select(x => new ChatUser
             {
-                UserId = 0, // Ид собеседника
                 AvatarUrl = new Uri(x.Group.AvatarUrl),
-                ChatId = x.Group.Id,
+                GroupId = x.Group.Id,
                 Name = x.Group.Name,
                 LastMessage = FromMessageDb(x.LastMessage),
+                IsOnline = Context.Listener.Connections.ContainsKey(x.GroupUserId),
             }).ToArray();
         }
 
@@ -89,34 +90,93 @@ namespace MessengerServer.Controllers
             return messages.Select(x => FromMessageDb(x)).ToArray();
         }
 
-        public async Task<SendMessageResult> SendMessage(string message, int userId)
+        public async Task<SendMessageResult> SendMessage(string message, long groupId)
         {
             Console.WriteLine($"Получено сообщение: \"{message}\"");
 
-            // TODO: записать в БД.
+            // Пользователи входящие в группу.
+            int[] users = await _dataProvider
+                .Get<GroupDb>()
+                .Where(x => x.Users.Any(y => y.UserId == UserId)) // Группы в которые входит пользователь.
+                .Where(x => x.Id == groupId)
+                .SelectMany(x => x.Users)
+                .Select(x => x.UserId)
+                .ToArrayAsync();
 
-            // Находим подключение пользователя по его UserId.
-            if (Context.Listener.Connections.TryGetValue(userId, out UserConnections connections))
+            MessageDb messageDb = await _dataProvider.InsertAsync(new MessageDb
             {
-                // Отправить сообщение через все соединения пользователя.
-                foreach (Context context in connections)
+                Text = message,
+                GroupId = groupId,
+                UserId = UserId,
+            });
+
+            var result = new SendMessageResult
+            {
+                MessageId = messageDb.Id.ToByteArray(),
+                Date = messageDb.CreatedUtc,
+            };
+
+            foreach (int userId in users.Except(new[] { UserId }))
+            {
+                // Находим подключение пользователя по его UserId.
+                if (Context.Listener.Connections.TryGetValue(userId, out UserConnections connections))
                 {
-                    ThreadPool.UnsafeQueueUserWorkItem(async delegate
+                    // Отправить сообщение через все соединения пользователя.
+                    foreach (Context context in connections)
                     {
-                        var client = context.GetProxy<IClientController>();
-                        try
+                        ThreadPool.UnsafeQueueUserWorkItem(async delegate
                         {
-                            await client.OnMessage(message, fromUserId: Context.UserId.Value);
-                        }
-                        catch (Exception ex)
-                        {
-                            Debug.WriteLine(ex);
-                        }
-                    }, null);
+                            var client = context.GetProxy<IClientController>();
+                            try
+                            {
+                                await client.OnMessage(message, fromGroupId: groupId, messageDb.Id);
+                            }
+                            catch (Exception ex)
+                            {
+                                Debug.WriteLine(ex);
+                            }
+                        }, null);
+                    }
                 }
             }
 
-            throw new NotImplementedException();
+            return result;
+        }
+
+        public async Task Typing(long groupId)
+        {
+            // Пользователи входящие в группу.
+            int[] users = await _dataProvider
+                .Get<GroupDb>()
+                .Where(x => x.Users.Any(y => y.UserId == UserId)) // Группы в которые входит пользователь.
+                .Where(x => x.Id == groupId)
+                .SelectMany(x => x.Users)
+                .Select(x => x.UserId)
+                .ToArrayAsync();
+
+            foreach (int userId in users.Except(new[] { UserId }))
+            {
+                // Находим подключение пользователя по его UserId.
+                if (Context.Listener.Connections.TryGetValue(userId, out UserConnections connections))
+                {
+                    // Отправить сообщение через все соединения пользователя.
+                    foreach (Context context in connections)
+                    {
+                        ThreadPool.UnsafeQueueUserWorkItem(async delegate
+                        {
+                            var client = context.GetProxy<IClientController>();
+                            try
+                            {
+                                await client.Typing(groupId);
+                            }
+                            catch (Exception ex)
+                            {
+                                Debug.WriteLine(ex);
+                            }
+                        }, null);
+                    }
+                }
+            }
         }
     }
 }
