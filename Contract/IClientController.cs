@@ -9,6 +9,7 @@ namespace Contract
     [ControllerContract("Home")]
     public interface IClientController
     {
-        Task OnMessage(string message, int fromUserId);
+        Task OnMessage(string message, long fromGroupId, Guid messageId);
+        Task Typing(long groupId);
     }
 }

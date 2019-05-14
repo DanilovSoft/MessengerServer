@@ -151,7 +151,7 @@ namespace wRPC
             Type resultType = GetActionReturnType(targetMethod);
 
             // Задача с ответом от удалённой стороны.
-            Task<object> taskObject = ExecuteRequestAsync(request, resultType, socketQueue: null);
+            Task<object> taskObject = ExecuteRequestAsync(request, resultType, Socket);
 
             // Если возвращаемый тип функции — Task.
             if (typeof(Task).IsAssignableFrom(targetMethod.ReturnType))
