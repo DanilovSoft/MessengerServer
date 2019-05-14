@@ -147,7 +147,7 @@ namespace wRPC
                 Args = CreateArgs()
             };
 
-            // Тип результата.
+            // Тип результата инкапсулированный в Task<T>.
             Type resultType = GetActionReturnType(targetMethod);
 
             // Задача с ответом от удалённой стороны.
@@ -169,6 +169,7 @@ namespace wRPC
             else
             // Была вызвана синхронная функция.
             {
+                // При синхронном ожидании Task нужно выполнять Dispose.
                 using (taskObject)
                 {
                     object rawResult = taskObject.GetAwaiter().GetResult();
@@ -327,7 +328,7 @@ namespace wRPC
                         else
                         // Произошла ошибка при разборе запроса.
                         {
-                            // Подготоваить ответ с ошибкой.
+                            // Подготовить ответ с ошибкой.
                             Message errorResponse = message.ErrorResponse($"Unable to deserialize type \"{nameof(Message)}\".", ErrorCode.InvalidRequestFormat);
 
                             // Начать отправку результата с ошибкой в отдельном потоке.
