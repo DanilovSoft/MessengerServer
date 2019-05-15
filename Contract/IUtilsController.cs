@@ -10,6 +10,6 @@ namespace Contract
     [ControllerContract("Utils")]
     public interface IUtilsController
     {
-        Task<byte[]> ShrinkImage(ShrinkImageRequest shrinkImage);
+        Task<byte[]> ShrinkImage(Uri ImageUri, int pixelSize);
     }
 }

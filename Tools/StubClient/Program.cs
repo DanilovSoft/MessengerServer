@@ -4,6 +4,7 @@ using System.Threading.Tasks;
 using wRPC;
 using Contract;
 using Contract.Dto;
+using System.IO;
 
 namespace StubClient
 {
@@ -33,8 +34,13 @@ namespace StubClient
                 AuthorizationResult token = await authController.Authorize(login: "Test2", password: "123456");
                 client.BearerToken = token.Token.Token;
 
+                //ChatUser[] groups = await homeController.GetConversations();
+                //var user = groups[3];
                 while (true)
                 {
+                    //byte[] img = await utilsController.ShrinkImage(token.ImageUrl, 120);
+                    //File.WriteAllBytes("D:\\test.jpg", img);
+
                     Console.Write("Введите сообдение: ");
                     string line = Console.ReadLine();
                     await homeController.SendMessage(line, 1);

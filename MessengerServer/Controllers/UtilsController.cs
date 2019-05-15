@@ -9,6 +9,8 @@ using System.Threading.Tasks;
 using wRPC;
 using Contract;
 using Contract.Dto;
+using System.Drawing.Imaging;
+using System.Linq;
 
 namespace MessengerServer.Controllers
 {
@@ -19,14 +21,31 @@ namespace MessengerServer.Controllers
 
         }
 
-        public async Task<byte[]> ShrinkImage(ShrinkImageRequest shrinkImage)
+        public async Task<byte[]> ShrinkImage(Uri ImageUri, int pixelSize)
         {
-            using (Bitmap bitmap = await ResizeImageAsync(shrinkImage.ImageUri, shrinkImage.Size))
+            using (Bitmap bitmap = await ResizeImageAsync(ImageUri, pixelSize))
             {
-                using (var mem = new MemoryStream())
+                using (var mem = new MemoryPoolStream(4096))
                 {
-                    bitmap.Save(mem, System.Drawing.Imaging.ImageFormat.Png);
-                    return mem.ToArray();
+                    //bitmap.Save(mem, ImageFormat.Png);
+                    BitmapToJpeg(mem, bitmap);
+                    byte[] serialized = mem.ToArray();
+                    return serialized;
+                }
+            }
+        }
+
+        private void BitmapToJpeg(Stream stream, Bitmap bitmap)
+        {
+            var qualityEncoder = System.Drawing.Imaging.Encoder.Quality;
+            long quality = 90; // В процентах.
+            using (var ratio = new EncoderParameter(qualityEncoder, quality))
+            {
+                using (var codecParams = new EncoderParameters(count: 1))
+                {
+                    codecParams.Param[0] = ratio;
+                    ImageCodecInfo jpegCodecInfo = ImageCodecInfo.GetImageEncoders().First(x => x.FormatID == ImageFormat.Jpeg.Guid);
+                    bitmap.Save(stream, jpegCodecInfo, codecParams); // Save to JPG
                 }
             }
         }

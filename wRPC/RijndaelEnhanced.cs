@@ -687,15 +687,12 @@
             byte[] saltBytes = GenerateSalt();
 
             // Allocate array which will hold salt and plain text bytes.
-            byte[] plainTextBytesWithSalt = new byte[plainTextBytes.Length +
-                                                     saltBytes.Length];
+            byte[] plainTextBytesWithSalt = new byte[plainTextBytes.Length + saltBytes.Length];
             // First, copy salt bytes.
             Array.Copy(saltBytes, plainTextBytesWithSalt, saltBytes.Length);
 
             // Append plain text bytes to the salt value.
-            Array.Copy(plainTextBytes, 0,
-                        plainTextBytesWithSalt, saltBytes.Length,
-                        plainTextBytes.Length);
+            Array.Copy(plainTextBytes, 0, plainTextBytesWithSalt, saltBytes.Length, plainTextBytes.Length);
 
             return plainTextBytesWithSalt;
         }

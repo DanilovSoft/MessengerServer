@@ -82,7 +82,7 @@ namespace wRPC
                 };
 
                 byte[] serialized;
-                using (var mem = new MemoryStream(capacity: 18))
+                using (var mem = new MemoryPoolStream(capacity: 18))
                 {
                     ProtoBuf.Serializer.Serialize(mem, serverBearer);
                     serialized = mem.ToArray();
