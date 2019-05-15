@@ -10,7 +10,7 @@ namespace wRPC
     /// </summary>
     [JsonObject(ItemNullValueHandling = NullValueHandling.Ignore)]
     [DebuggerDisplay("{DebugDisplay,nq}")]
-    public sealed class Message
+    internal sealed class Message
     {
         #region Debug
         [JsonIgnore]
@@ -37,7 +37,7 @@ namespace wRPC
         public Arg[] Args;
 
         [JsonProperty(Order = 5, DefaultValueHandling = DefaultValueHandling.Ignore)]
-        public JToken Result;
+        public object Result;
 
         /// <summary>
         /// Не <see langword="null"/> если запрос завершен с ошибкой.
@@ -70,7 +70,7 @@ namespace wRPC
         {
             IsRequest = false; 
             Uid = uid;
-            Result = result == null ? null : JToken.FromObject(result);
+            Result = result;
             Error = error;
             ErrorCode = errorCode;
         }

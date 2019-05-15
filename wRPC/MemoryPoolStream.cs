@@ -1,4 +1,4 @@
-﻿// Version 1.0.0
+﻿// Version 1.0.1
 
 using System;
 using System.Buffers;
@@ -190,7 +190,8 @@ namespace System.IO
                 if (deltaPosition == 0)
                 {
                     // Размер стрима увеличен до требуемого размера.
-                    _length = requiredSize;
+                    if(_length < requiredSize)
+                        _length = requiredSize;
                 }
                 else
                 // Курсор необходимо выровнять под позицию стрима.

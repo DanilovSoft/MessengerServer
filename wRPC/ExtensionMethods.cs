@@ -3,6 +3,7 @@ using Newtonsoft.Json.Bson;
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Runtime.Serialization.Formatters.Binary;
 using System.Text;
 
 namespace wRPC
@@ -43,13 +44,23 @@ namespace wRPC
             return ar;
         }
 
-        public static void Serialize(this Message request, Stream stream)
+        public static void Serialize(object value, Stream stream)
         {
             using (var binaryWriter = new BinaryWriter(stream, new UTF8Encoding(false, true), leaveOpen: true))
             using (var bson = new BsonDataWriter(binaryWriter))
             {
                 var ser = new JsonSerializer();
-                ser.Serialize(bson, request);
+                ser.Serialize(bson, value);
+            }
+        }
+
+        public static void Serialize(this Message message, Stream stream)
+        {
+            using (var binaryWriter = new BinaryWriter(stream, new UTF8Encoding(false, true), leaveOpen: true))
+            using (var bson = new BsonDataWriter(binaryWriter))
+            {
+                var ser = new JsonSerializer();
+                ser.Serialize(bson, message);
             }
         }
 
@@ -60,6 +71,16 @@ namespace wRPC
             {
                 var ser = new JsonSerializer();
                 return ser.Deserialize<T>(bson);
+            }
+        }
+
+        public static object Deserialize(Stream stream, Type objectType)
+        {
+            using (var binaryWriter = new BinaryReader(stream, new UTF8Encoding(), leaveOpen: true))
+            using (var bson = new BsonDataReader(binaryWriter))
+            {
+                var ser = new JsonSerializer();
+                return ser.Deserialize(bson, objectType);
             }
         }
     }

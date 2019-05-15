@@ -130,6 +130,8 @@ namespace wRPC
         /// </summary>
         internal object OnProxyCall(MethodInfo targetMethod, object[] args, string controllerName)
         {
+            ThrowIfDisposed();
+
             #region CreateArgs()
             Message.Arg[] CreateArgs()
             {
@@ -197,7 +199,7 @@ namespace wRPC
             TaskCompletionSource tcs;
 
             // Арендуем память.
-            using (var mem = new MemoryPoolStream(128))
+            //using (var mem = new MemoryPoolStream(128))
             {
                 // Когда вызывает клиент то установить соединение или взять существующее.
                 if (socketQueue == null)
@@ -213,13 +215,14 @@ namespace wRPC
                 request.Uid = uid;
 
                 // Сериализуем запрос в память.
-                request.Serialize(mem);
+                //request.Serialize(mem);
 
-                byte[] pooledBuffer = mem.GetBuffer();
-                var segment = new ArraySegment<byte>(pooledBuffer, 0, (int)mem.Position);
+                //byte[] pooledBuffer = mem.GetBuffer();
+                //var segment = new ArraySegment<byte>(pooledBuffer, 0, (int)mem.Position);
 
                 // Отправка запроса.
-                await socketQueue.WebSocket.SendAsync(segment, WebSocketMessageType.Binary, true, CancellationToken.None).ConfigureAwait(false);
+                await SendMessageAsync(socketQueue, request);
+                //await socketQueue.WebSocket.SendAsync(segment, WebSocketMessageType.Binary, true, CancellationToken.None).ConfigureAwait(false);
             } // Вернуть память.
 
             // Ожидаем результат от потока поторый читает из сокета.
@@ -229,9 +232,9 @@ namespace wRPC
             response.EnsureSuccessStatusCode();
 
             // Десериализуем результат.
-            object rawResult = response.Result?.ToObject(resultType);
+            //object rawResult = ExtensionMethods.Deserialize(response.Result, resultType);
 
-            return rawResult;
+            return response.Result;
         }
 
         /// <summary>
@@ -246,6 +249,7 @@ namespace wRPC
                 // Бесконечно обрабатываем сообщения сокета.
                 while (true)
                 {
+                    Header header = null;
                     Message message = null;
                     Exception deserializationException = null;
 
@@ -308,7 +312,7 @@ namespace wRPC
                         mem.Position = 0;
                         try
                         {
-                            message = ExtensionMethods.Deserialize<Message>(mem);
+                            header = Header.Deserialize(mem);
                         }
                         catch (Exception ex)
                         // Ошибка десериализации сообщения.
@@ -316,6 +320,8 @@ namespace wRPC
                             // Подготовить ошибку для дальнейшей обработки.
                             deserializationException = ex;
                         }
+
+                        message = ExtensionMethods.Deserialize<Message>(mem);
 
                         #endregion
                     }
@@ -627,22 +633,50 @@ namespace wRPC
 
             using (var mem = new MemoryPoolStream(256))
             {
-                message.Serialize(mem);
-                int count = (int)mem.Length;
+                mem.Position = Header.Size;
+
+                int contentLength = 0;
+                if (!message.IsRequest)
+                {
+                    ExtensionMethods.Serialize(message.Result, mem);
+                    contentLength = (int)mem.Position - Header.Size;
+                }
+
+                var header = new Header
+                {
+                    IsRequest = message.IsRequest,
+                    Uid = message.Uid,
+                    ContentLength = contentLength,
+                };
+
+                mem.Position = 0;
+                header.Serialize(mem);
+
                 byte[] streamBuffer = mem.GetBuffer();
 
-                if (count <= WebSocketFrameMaxSize)
+                try
                 {
-                    var segment = new ArraySegment<byte>(streamBuffer, 0, count);
-
-                    try
+                    // Может бросить ObjectDisposedException.
+                    using (await _sendMessageLock.LockAsync())
                     {
-                        // Может бросить ObjectDisposedException.
-                        using (await _sendMessageLock.LockAsync())
+                        // Отправляем сообщение по частям.
+                        int offset = 0;
+                        int bytesLeft = (int)mem.Length;
+                        do
                         {
+                            bool endOfMessage = false;
+                            int countToSend = WebSocketFrameMaxSize;
+                            if (countToSend >= bytesLeft)
+                            {
+                                countToSend = bytesLeft;
+                                endOfMessage = true;
+                            }
+
+                            var segment = new ArraySegment<byte>(streamBuffer, offset, countToSend);
+
                             try
                             {
-                                await socketQueue.WebSocket.SendAsync(segment, WebSocketMessageType.Binary, endOfMessage: true, CancellationToken.None);
+                                await socketQueue.WebSocket.SendAsync(segment, WebSocketMessageType.Binary, endOfMessage, CancellationToken.None);
                             }
                             catch (Exception ex)
                             // Обрыв соединения.
@@ -653,62 +687,26 @@ namespace wRPC
                                 // Завершить поток.
                                 return;
                             }
-                        }
-                    }
-                    catch (ObjectDisposedException)
-                    {
-                        // Может случиться если вызвали Context.Dispose().
+
+                            bytesLeft -= countToSend;
+                            offset += countToSend;
+
+                        } while (bytesLeft > 0);
                     }
                 }
-                else
-                // Размер сообщения больше чем дефолтный буффер.
+                catch (ObjectDisposedException)
                 {
-                    // Отправляем сообщение по частям.
-                    try
-                    {
-                        // Может бросить ObjectDisposedException.
-                        using (await _sendMessageLock.LockAsync())
-                        {
-                            int offset = 0;
-                            int bytesLeft = count;
-                            do
-                            {
-                                bool endOfMessage = false;
-                                int countToSend = WebSocketFrameMaxSize;
-                                if(countToSend >= bytesLeft)
-                                {
-                                    countToSend = bytesLeft;
-                                    endOfMessage = true;
-                                }
-
-                                var segment = new ArraySegment<byte>(streamBuffer, offset, countToSend);
-
-                                try
-                                {
-                                    await socketQueue.WebSocket.SendAsync(segment, WebSocketMessageType.Binary, endOfMessage, CancellationToken.None);
-                                }
-                                catch (Exception ex)
-                                // Обрыв соединения.
-                                {
-                                    // Оповестить об обрыве.
-                                    AtomicDisconnect(socketQueue, ex);
-
-                                    // Завершить поток.
-                                    return;
-                                }
-
-                                bytesLeft -= countToSend;
-                                offset += countToSend;
-
-                            } while (bytesLeft > 0);
-                        }
-                    }
-                    catch (ObjectDisposedException)
-                    {
-                        // Может случиться если вызвали Context.Dispose().
-                    }
+                    // Может случиться если вызвали Context.Dispose().
                 }
             }
+        }
+
+        [DebuggerStepThrough]
+        /// <exception cref="ObjectDisposedException"/>
+        private void ThrowIfDisposed()
+        {
+            if (IsDisposed)
+                throw new ObjectDisposedException(GetType().FullName);
         }
 
         public virtual void Dispose()
