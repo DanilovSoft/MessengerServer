@@ -173,7 +173,7 @@ namespace wRPC
                     //Socket.Disconnected += WebSocket_Disconnected;
                 }
                 else
-                    throw new RemoteException($"You are already authorized as 'UserId: {UserId}'", ErrorCode.BadRequest);
+                    throw new RemoteException($"You are already authorized as 'UserId: {UserId}'", ResultCode.BadRequest);
             }
         }
 
@@ -252,7 +252,7 @@ namespace wRPC
             if (Attribute.IsDefined(controllerType, typeof(AllowAnonymousAttribute)))
                 return;
 
-            throw new RemoteException("The request requires user authentication", ErrorCode.Unauthorized);
+            throw new RemoteException("The request requires user authentication", ResultCode.Unauthorized);
         }
 
         private protected override Task<SocketQueue> GetOrCreateConnectionAsync()

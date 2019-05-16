@@ -16,6 +16,8 @@ namespace MessengerServer.Controllers
 {
     public sealed class UtilsController : ServerController, IUtilsController
     {
+        private const long AvatarQuality = 85; // В процентах.
+
         public UtilsController()
         {
 
@@ -38,7 +40,7 @@ namespace MessengerServer.Controllers
         private void BitmapToJpeg(Stream stream, Bitmap bitmap)
         {
             var qualityEncoder = System.Drawing.Imaging.Encoder.Quality;
-            long quality = 90; // В процентах.
+            long quality = AvatarQuality; // В процентах.
             using (var ratio = new EncoderParameter(qualityEncoder, quality))
             {
                 using (var codecParams = new EncoderParameters(count: 1))

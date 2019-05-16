@@ -16,5 +16,10 @@ namespace wRPC
         {
             
         }
+
+        //protected virtual void OnException(Exception exception)
+        //{
+
+        //}
     }
 }

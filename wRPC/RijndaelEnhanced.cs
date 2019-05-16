@@ -533,7 +533,7 @@
             byte[] plainTextBytesWithSalt = AddSalt(plainTextBytes);
 
             // Encryption will be performed using memory stream.
-            using (var memoryStream = new MemoryStream())
+            using (var memoryStream = new MemoryStream(32))
             {
                 byte[] cipherTextBytes;
                 // Let's make cryptographic operations thread-safe.
@@ -542,7 +542,6 @@
                     // To perform encryption, we must use the Write mode.
                     using (var cryptoStream = new CryptoStream(memoryStream, _encryptor, CryptoStreamMode.Write))
                     {
-
                         // Start encrypting data.
                         cryptoStream.Write(plainTextBytesWithSalt, 0, plainTextBytesWithSalt.Length);
 

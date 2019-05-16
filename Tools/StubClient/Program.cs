@@ -31,7 +31,16 @@ namespace StubClient
                 var utilsController = client.GetProxy<IUtilsController>();
 
                 Console.WriteLine("Авторизация...");
-                AuthorizationResult token = await authController.Authorize(login: "Test2", password: "123456");
+                AuthorizationResult token;
+                try
+                {
+                    token = await authController.Authorize(login: "Test2", password: "123456");
+                }
+                catch (Exception ex)
+                {
+                    throw;
+                }
+                
                 client.BearerToken = token.Token.Token;
 
                 //ChatUser[] groups = await homeController.GetConversations();

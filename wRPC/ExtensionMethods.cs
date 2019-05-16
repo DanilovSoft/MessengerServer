@@ -10,57 +10,23 @@ namespace wRPC
 {
     internal static class ExtensionMethods
     {
-        public static Message ErrorResponse(this Message request, RemoteException remoteException)
+        public static Message ErrorResponse(this RequestMessage request, RemoteException remoteException)
         {
-            return new Message(request.Uid, result: null, remoteException.Message, remoteException.ErrorCode);
+            return new Message(request.Header.Uid, result: null, remoteException.Message, remoteException.ErrorCode);
         }
 
-        public static Message ErrorResponse(this Message request, string errorMessage, ErrorCode errorCode)
+        public static Message ErrorResponse(this RequestMessage request, string errorMessage, ResultCode errorCode)
         {
-            return new Message(request.Uid, result: null, errorMessage, errorCode);
+            return new Message(request.Header.Uid, result: null, errorMessage, errorCode);
         }
 
-        public static ArrayPool Serialize(this Message request, out int size)
-        {
-            var ar = new ArrayPool(4096);
-            using (var mem = new MemoryStream(ar.Array))
-            {
-                try
-                {
-                    using (var binaryWriter = new BinaryWriter(mem, new UTF8Encoding(false, true), leaveOpen: true))
-                    using (var bson = new BsonDataWriter(binaryWriter))
-                    {
-                        var ser = new JsonSerializer();
-                        ser.Serialize(bson, request);
-                    }
-                }
-                catch
-                {
-                    ar.Dispose();
-                    throw;
-                }
-                size = (int)mem.Position;
-            }
-            return ar;
-        }
-
-        public static void Serialize(object value, Stream stream)
+        public static void SerializeObject(object value, Stream stream)
         {
             using (var binaryWriter = new BinaryWriter(stream, new UTF8Encoding(false, true), leaveOpen: true))
             using (var bson = new BsonDataWriter(binaryWriter))
             {
                 var ser = new JsonSerializer();
                 ser.Serialize(bson, value);
-            }
-        }
-
-        public static void Serialize(this Message message, Stream stream)
-        {
-            using (var binaryWriter = new BinaryWriter(stream, new UTF8Encoding(false, true), leaveOpen: true))
-            using (var bson = new BsonDataWriter(binaryWriter))
-            {
-                var ser = new JsonSerializer();
-                ser.Serialize(bson, message);
             }
         }
 

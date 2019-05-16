@@ -11,7 +11,7 @@ namespace wRPC
     [Serializable]
     public class RemoteException : Exception
     {
-        public ErrorCode? ErrorCode { get; }
+        public ResultCode ErrorCode { get; }
 
         public RemoteException()
         {
@@ -23,7 +23,7 @@ namespace wRPC
 
         }
 
-        public RemoteException(string message, ErrorCode? errorCode) : base(message)
+        public RemoteException(string message, ResultCode errorCode) : base(message)
         {
             ErrorCode = errorCode;
         }

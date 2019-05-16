@@ -17,7 +17,7 @@ namespace wRPC
         #endregion
         private readonly Random _rnd;
         [DebuggerBrowsable(DebuggerBrowsableState.RootHidden)]
-        private readonly Dictionary<int, TaskCompletionSource> _dict = new Dictionary<int, TaskCompletionSource>();
+        private readonly Dictionary<short, TaskCompletionSource> _dict = new Dictionary<short, TaskCompletionSource>();
         private Exception _disconnectException;
 
         /// <summary>
@@ -32,7 +32,7 @@ namespace wRPC
         /// Потокобезопасно добавляет запрос в очередь запросов и возвращает уникальный идентификатор.
         /// </summary>
         /// <exception cref="Exception">Происходит если уже происходил обрыв соединения.</exception>
-        public TaskCompletionSource CreateRequest(Message message, out int uid)
+        public TaskCompletionSource CreateRequest(RequestMessage request, Type resultType, out short uid)
         {
             lock (_dict)
             {
@@ -41,42 +41,47 @@ namespace wRPC
 
                 do
                 {
-                    uid = _rnd.Next();
+                    uid = (short)_rnd.Next();
                 } while (_dict.ContainsKey(uid)); // Предотвратить дубли уникальных ключей.
 
-                var tcs = new TaskCompletionSource(message);
+                var tcs = new TaskCompletionSource(request, resultType);
                 _dict.Add(uid, tcs);
                 return tcs;
             }
         }
 
-        /// <summary>
-        /// Потокобезопасно передает результат запроса ожидающему потоку.
-        /// </summary>
-        public void OnResponse(Message message)
+        ///// <summary>
+        ///// Потокобезопасно передает результат запроса ожидающему потоку.
+        ///// </summary>
+        //public void OnResponse(Message message)
+        //{
+        //    if(TryRemove(message.Uid, out TaskCompletionSource tcs))
+        //    {
+        //        tcs.OnResponse(message);
+        //    }
+        //}
+
+        public bool TryTake(short uid, out TaskCompletionSource tcs)
         {
-            if(TryRemove(message.Uid, out TaskCompletionSource tcs))
-            {
-                tcs.OnResponse(message);
-            }
+            return TryRemove(uid, out tcs);
         }
 
         /// <summary>
         /// Потокобезопасно передает исключение как результат запроса ожидающему потоку.
         /// </summary>
-        public void OnErrorResponse(int uid, Exception exception)
+        public void OnErrorResponse(short uid, Exception exception)
         {
             // Потокобезопасно удалить запрос из словаря.
             if (TryRemove(uid, out TaskCompletionSource tcs))
             {
-                tcs.OnException(exception);
+                tcs.OnError(exception);
             }
         }
 
         /// <summary>
         /// Потокобезопасно удаляет запрос из словаря.
         /// </summary>
-        private bool TryRemove(int uid, out TaskCompletionSource tcs)
+        private bool TryRemove(short uid, out TaskCompletionSource tcs)
         {
             lock (_dict)
             {
@@ -105,7 +110,7 @@ namespace wRPC
                     {
                         foreach (TaskCompletionSource tcs in _dict.Values)
                         {
-                            tcs.OnException(exception);
+                            tcs.OnError(exception);
                         }
                         _dict.Clear();
                     }

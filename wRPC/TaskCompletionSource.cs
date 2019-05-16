@@ -12,23 +12,28 @@ namespace wRPC
     internal sealed class TaskCompletionSource : INotifyCompletion
     {
         [DebuggerBrowsable(DebuggerBrowsableState.Never)]
-        private string DebugDisplay => "{" + $"{Message.ActionName}" + "}";
+        private string DebugDisplay => "{" + $"{_requestMessage.ActionName}" + "}";
+        private readonly RequestMessage _requestMessage;
+        public readonly Type ResultType;
         /// <summary>
         /// Флаг используется как fast-path
         /// </summary>
         private volatile bool _isCompleted;
         public bool IsCompleted => _isCompleted;
-        private volatile Message _response;
+        private volatile object _response;
         private volatile Exception _exception;
         private Action _continuationAtomic;
-        private readonly Message Message;
 
-        public TaskCompletionSource(Message message)
+        // ctor.
+        public TaskCompletionSource(RequestMessage request, Type resultType)
         {
-            Message = message;
+            _requestMessage = request;
+            ResultType = resultType;
         }
 
-        public Message GetResult()
+        public TaskCompletionSource GetAwaiter() => this;
+
+        public object GetResult()
         {
             var ex = _exception;
             if (ex != null)
@@ -37,12 +42,10 @@ namespace wRPC
             return _response;
         }
 
-        public TaskCompletionSource GetAwaiter() => this;
-
         /// <summary>
         /// Передает ожидающему потоку исключение как результат запроса.
         /// </summary>
-        public void OnException(Exception exception)
+        public void OnError(Exception exception)
         {
             _exception = exception;
             OnResult();
@@ -51,9 +54,9 @@ namespace wRPC
         /// <summary>
         /// Передает результат ожидающему потоку.
         /// </summary>
-        public void OnResponse(Message response)
+        public void OnResponse(object rawResult)
         {
-            _response = response;
+            _response = rawResult;
             OnResult();
         }
 

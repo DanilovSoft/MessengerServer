@@ -30,11 +30,9 @@ namespace wRPC
         private Releaser OnEnterSemaphore(Task task)
         {
             // Семафор мог быть освобожден после вызова Dispose.
-            lock (_sem)
-            {
-                if (_disposed)
-                    throw new ObjectDisposedException(GetType().FullName);
-            }
+            if (_disposed)
+                throw new ObjectDisposedException(GetType().FullName);
+
             return _releaser;
         }
 

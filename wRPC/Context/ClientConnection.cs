@@ -153,12 +153,14 @@ namespace wRPC
         /// </summary>
         private async Task<bool> AuthorizeAsync(SocketQueue socketQueue, byte[] bearerToken)
         {
-            var message = new Message("Auth/AuthorizeToken")
+            var message = new RequestMessage()
             {
-                Args = new Message.Arg[]
+                ActionName = "Auth/AuthorizeToken",
+                Args = new Arg[]
                 {
-                    new Message.Arg("token", bearerToken)
-                }
+                    new Arg("token", bearerToken)
+                },
+                Header = new Header(),
             };
 
             // Отправить запрос и получить ответ.
