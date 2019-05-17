@@ -37,6 +37,8 @@ namespace wRPC
 
         public string Error { get; set; }
 
+        public RequestMessage Request { get; set; }
+
         protected Message()
         {
 

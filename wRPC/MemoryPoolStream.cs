@@ -1,4 +1,4 @@
-﻿// Version 1.0.1
+﻿// Version 1.0.2
 
 using System;
 using System.Buffers;
@@ -203,8 +203,8 @@ namespace System.IO
                         // Обнулить правую часть буфера до позиции стрима.
                         Array.Clear(_arrayBuffer, _arrayBufferPosition, deltaPosition);
 
-                        // Размер стрима теперь совпадает с позицией стрима.
-                        _length = _position;
+                        // Размер стрима теперь увеличен до необходимого.
+                        _length = requiredSize;
                     }
                     else
                     // Позиция стрима меньше курсора буфера.

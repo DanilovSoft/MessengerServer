@@ -483,8 +483,8 @@ namespace wRPC
                     }
                 }
 
-                // Размер данных без учета заголовка.
-                int contentLength = (int)mem.Position - Header.Size;
+                // Размер данных с учётом заголовков.
+                int contentLength = (int)mem.Length;
 
                 var header = new Header
                 {
@@ -505,7 +505,7 @@ namespace wRPC
                     {
                         // Отправляем сообщение по частям.
                         int offset = 0;
-                        int bytesLeft = (int)mem.Length;
+                        int bytesLeft = contentLength;
                         do
                         {
                             bool endOfMessage = false;
@@ -742,6 +742,7 @@ namespace wRPC
 
                 // Выполнить запрос и создать сообщение с результатом.
                 Message response = await GetResponseAsync(tuple.request);
+                response.Request = tuple.request;
 
                 // Сериализовать и отправить результат.
                 await SendMessageAsync(tuple.socketQueue, response);
@@ -772,7 +773,7 @@ namespace wRPC
             catch (Exception ex)
             // Злая ошибка обработки запроса. Ошибка 500.
             {
-                DebugOnly.Break();
+                //DebugOnly.Break();
                 Debug.WriteLine(ex);
 
                 // Вернуть результат с ошибкой.
