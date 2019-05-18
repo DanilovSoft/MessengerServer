@@ -32,7 +32,7 @@ namespace wRPC
         /// Потокобезопасно добавляет запрос в словарь запросов и возвращает уникальный идентификатор.
         /// </summary>
         /// <exception cref="Exception">Происходит если уже происходил обрыв соединения.</exception>
-        public TaskCompletionSource CreateRequest(RequestMessage request, Type resultType, out short uid)
+        public TaskCompletionSource AddRequest(RequestMessage request, Type resultType, out short uid)
         {
             lock (_dict)
             {

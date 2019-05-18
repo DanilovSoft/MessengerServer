@@ -16,12 +16,12 @@ namespace wRPC
         /// <summary>
         /// Коллекция запросов ожидающие ответ от удалённой стороны.
         /// </summary>
-        public RequestQueue RequestQueue { get; }
+        public RequestQueue RequestCollection { get; }
 
         public SocketQueue(WebSocket webSocket)
         {
             WebSocket = webSocket;
-            RequestQueue = new RequestQueue();
+            RequestCollection = new RequestQueue();
         }
 
         /// <summary>
@@ -33,6 +33,9 @@ namespace wRPC
             return owned;
         }
 
+        /// <summary>
+        /// Атомарно.
+        /// </summary>
         public void Dispose()
         {
             if (Interlocked.CompareExchange(ref _disposed, 1, 0) == 0)

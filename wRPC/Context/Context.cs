@@ -150,9 +150,9 @@ namespace wRPC
 
             var request = new RequestMessage()
             {
+                Header = new Header(),
                 ActionName = $"{controllerName}/{targetMethod.Name}",
                 Args = CreateArgs(),
-                Header = new Header(),
             };
 
             // Тип результата инкапсулированный в Task<T>.
@@ -170,7 +170,6 @@ namespace wRPC
                     // Task<object> должен быть преобразован в Task<T>.
                     return TaskConverter.ConvertTask(taskObject, resultType);
                 }
-
                 // Если возвращаемый тип Task(без результата) то можно вернуть Task<object>.
                 return taskObject;
             }
@@ -180,6 +179,7 @@ namespace wRPC
                 // При синхронном ожидании Task нужно выполнять Dispose.
                 using (taskObject)
                 {
+                    // Результатом может быть исключение.
                     object rawResult = taskObject.GetAwaiter().GetResult();
                     return rawResult;
                 }
@@ -191,6 +191,10 @@ namespace wRPC
         /// </summary>
         /// <returns></returns>
         private protected abstract Task<SocketQueue> GetOrCreateConnectionAsync();
+        /// <summary>
+        /// Происходит атомарно для экземпляра подключения.
+        /// </summary>
+        /// <param name="socketQueue">Экземпляр подключения в котором произошло отключение.</param>
         private protected abstract void OnDisconnect(SocketQueue socketQueue);
 
         /// <summary>
@@ -199,15 +203,15 @@ namespace wRPC
         /// <param name="resultType">Тип в который будет десериализован результат запроса.</param>
         private protected async Task<object> ExecuteRequestAsync(RequestMessage request, Type resultType, SocketQueue socketQueue)
         {
-            // Когда вызывает клиент то установить соединение или взять существующее.
+            // У клиента соединение может быть ещё не установлено.
             if (socketQueue == null)
             {
                 // Никогда не вызывается серверным контекстом.
                 socketQueue = await GetOrCreateConnectionAsync().ConfigureAwait(false);
             }
 
-            // Добавить в словарь запросов.
-            TaskCompletionSource tcs = socketQueue.RequestQueue.CreateRequest(request, resultType, out short uid);
+            // Добавить запрос в словарь для дальнейшей связки с ответом.
+            TaskCompletionSource tcs = socketQueue.RequestCollection.AddRequest(request, resultType, out short uid);
 
             // Назначить запросу уникальный идентификатор.
             request.Header.Uid = uid;
@@ -310,7 +314,7 @@ namespace wRPC
                                         var protocolErrorException = new ProtocolErrorException(ProtocolHeaderErrorMessage, headerException);
 
                                         // Сообщить потокам что обрыв произошел по вине удалённой стороны.
-                                        socketQueue.RequestQueue.OnDisconnect(protocolErrorException);
+                                        socketQueue.RequestCollection.OnDisconnect(protocolErrorException);
 
                                         try
                                         {
@@ -386,7 +390,7 @@ namespace wRPC
                             // Получен ответ на запрос.
                             {
                                 // Удалить запрос из словаря.
-                                if (socketQueue.RequestQueue.TryTake(header.Uid, out TaskCompletionSource tcs))
+                                if (socketQueue.RequestCollection.TryTake(header.Uid, out TaskCompletionSource tcs))
                                 // Передать ответ ожидающему потоку.
                                 {
                                     ResponseHeader responseHeader;
@@ -449,7 +453,7 @@ namespace wRPC
                             var protocolErrorException = new ProtocolErrorException("Удалённая сторона прислала недостаточно данных для заголовка.");
 
                             // Сообщить потокам что обрыв произошел по вине удалённой стороны.
-                            socketQueue.RequestQueue.OnDisconnect(protocolErrorException);
+                            socketQueue.RequestCollection.OnDisconnect(protocolErrorException);
 
                             try
                             {
@@ -598,13 +602,15 @@ namespace wRPC
         /// <summary>
         /// Потокобезопасно освобождает ресурсы соединения. Вызывается при обрыве соединения.
         /// </summary>
+        /// <param name="socketQueue">Экземпляр в котором произошел обрыв.</param>
         /// <param name="exception">Возможная причина обрыва соединения.</param>
         private protected void AtomicDisconnect(SocketQueue socketQueue, Exception exception)
         {
+            // Захватить эксклюзивный доступ к сокету.
             if(socketQueue.TryOwn())
             {
                 // Передать исключение всем ожидающим потокам.
-                socketQueue.RequestQueue.OnDisconnect(exception);
+                socketQueue.RequestCollection.OnDisconnect(exception);
 
                 // Закрывает соединение.
                 socketQueue.Dispose();
