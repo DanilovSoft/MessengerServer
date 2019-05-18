@@ -19,7 +19,9 @@ namespace StubClient
             #region Debug: Ждем запуск сервера
 
             Mutex mutex = null;
+            Console.Write("Ожидаем процес сервера...");
             SpinWait.SpinUntil(() => Mutex.TryOpenExisting($"MessengerServer_Port:{Port}", out mutex));
+            Console.WriteLine(" Ok");
             mutex.Dispose();
 
             #endregion
@@ -47,7 +49,7 @@ namespace StubClient
                 //var user = groups[3];
                 while (true)
                 {
-                    //byte[] img = await utilsController.ShrinkImage(token.ImageUrl, 120);
+                    //byte[] img = await utilsController.ShrinkImage(token.ImageUrl, 320);
                     //File.WriteAllBytes("D:\\test.jpg", img);
 
                     Console.Write("Введите сообдение: ");

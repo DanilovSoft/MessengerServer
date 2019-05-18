@@ -12,6 +12,11 @@ namespace wRPC
 
         }
 
+        public ProtocolErrorException(string message) : base(message)
+        {
+
+        }
+
         public ProtocolErrorException(string message, Exception innerException) : base(message, innerException)
         {
 

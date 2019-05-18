@@ -57,6 +57,7 @@ namespace MessengerServer.Controllers
 
             return new ChatMessage
             {
+                MessageId = message.Id,
                 Text = message.Text,
                 CreatedUtcDate = message.CreatedUtc,
                 IsMy = message.UserId == UserId,

@@ -20,13 +20,23 @@ namespace wRPC
         #region Debug
 
         [DebuggerBrowsable(DebuggerBrowsableState.Never)]
-        private string DebugDisplay => "{" + $"{{{GetType().Name}}}, Connected = {Socket != null}" + "}";
+        private string DebugDisplay => "{" + $"Connected = {Socket != null}, IsAuthorized = {IsAuthorized}" + "}";
         
         #endregion
 
+        /// <summary>
+        /// Используется для синхронизации установки соединения.
+        /// </summary>
         private readonly AsyncLock _asyncLock;
+        /// <summary>
+        /// Адрес для подключеия к серверу.
+        /// </summary>
         private readonly Uri _uri;
+        /// <summary>
+        /// Токен авторизации передаваемый серверу при начальном подключении.
+        /// </summary>
         public byte[] BearerToken { get; set; }
+        public bool IsAuthorized { get; private set; }
 
         /// <summary>
         /// Создаёт контекст клиентского соединения.
@@ -137,6 +147,8 @@ namespace wRPC
                             throw;
                         }
                     }
+
+                    IsAuthorized = authorized;
 
                     Debug.WriteIf(authorized, "Соединение успешно авторизовано");
 

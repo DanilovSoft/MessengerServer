@@ -26,7 +26,9 @@ namespace wRPC
         /// Максимальный размер фрейма который может использовать веб-сокет.
         /// </summary>
         private const int WebSocketFrameMaxSize = 4096;
-        private const string ProtocolErrorMessage = "Произошла ошибка десериализации ответа от удалённой стороны.";
+        //private const string ProtocolContentErrorMessage = "Произошла ошибка десериализации результата запроса от удалённой стороны.";
+        private const string ProtocolHeaderErrorMessage = "Произошла ошибка десериализации заголовка от удалённой стороны.";
+        private const string ProtocolResponseHeaderErrorMessage = "Произошла ошибка десериализации заголовка ответа от удалённой стороны.";
         public ServiceCollection IoC { get; }
         /// <summary>
         /// Объект синхронизации для создания прокси из интерфейсов.
@@ -47,7 +49,7 @@ namespace wRPC
         /// </summary>
         private protected SocketQueue Socket { get => _socket; set => _socket = value; }
         /// <summary>
-        /// Токен отмены связанный с текущим соединением. Позволяет прервать действие контроллера при обрыве соединения.
+        /// Токен отмены связанный с текущим соединением. Позволяет прервать действия контроллера при обрыве соединения.
         /// </summary>
         private readonly CancellationTokenSource _cts = new CancellationTokenSource();
         /// <summary>
@@ -204,7 +206,7 @@ namespace wRPC
                 socketQueue = await GetOrCreateConnectionAsync().ConfigureAwait(false);
             }
 
-            // Добавить в очередь запросов.
+            // Добавить в словарь запросов.
             TaskCompletionSource tcs = socketQueue.RequestQueue.CreateRequest(request, resultType, out short uid);
 
             // Назначить запросу уникальный идентификатор.
@@ -243,6 +245,7 @@ namespace wRPC
                     {
                         #region Читаем все фреймы веб-сокета в стрим.
 
+                        Header header = null;
                         WebSocketReceiveResult webSocketMessage;
                         using (var frameMem = new MemoryPoolStream(WebSocketFrameMaxSize))
                         {
@@ -291,22 +294,159 @@ namespace wRPC
                                 // Копирование фрейма в MemoryStream.
                                 mem.Write(pooledBuffer, 0, webSocketMessage.Count);
 
+                                if(header == null && mem.Length >= Header.Size)
+                                // Пора десериализовать заголовок.
+                                {
+                                    #region Десериализуем фрейм веб-сокета в заголовок протокола.
+
+                                    mem.Position = 0;
+                                    try
+                                    {
+                                        header = Header.Deserialize(mem);
+                                    }
+                                    catch (Exception headerException)
+                                    // Не удалось десериализовать заголовок.
+                                    {
+                                        var protocolErrorException = new ProtocolErrorException(ProtocolHeaderErrorMessage, headerException);
+
+                                        // Сообщить потокам что обрыв произошел по вине удалённой стороны.
+                                        socketQueue.RequestQueue.OnDisconnect(protocolErrorException);
+
+                                        try
+                                        {
+                                            // Отключаемся от сокета с небольшим таймаутом.
+                                            using (var cts = new CancellationTokenSource(3000))
+                                                await socketQueue.WebSocket.CloseAsync(WebSocketCloseStatus.ProtocolError, "Ошибка десериализации заголовка.", cts.Token);
+                                        }
+                                        catch (Exception ex)
+                                        // Злой обрыв соединения.
+                                        {
+                                            // Оповестить об обрыве.
+                                            AtomicDisconnect(socketQueue, ex);
+
+                                            // Завершить поток.
+                                            return;
+                                        }
+
+                                        // Оповестить об обрыве.
+                                        AtomicDisconnect(socketQueue, protocolErrorException);
+
+                                        // Завершить поток.
+                                        return;
+                                    }
+
+                                    // Если есть еще фреймы веб-сокета.
+                                    if (!webSocketMessage.EndOfMessage)
+                                    {
+                                        // Возвращаем позицию стрима в конец для следующей записи.
+                                        mem.Seek(0, SeekOrigin.End);
+
+                                        // Увеличим стрим до размера всего сообщения.
+                                        mem.Capacity = header.ContentLength;
+                                    }
+
+                                    #endregion
+                                }
                             } while (!webSocketMessage.EndOfMessage);
                         }
                         #endregion
 
-                        #region Десериализуем фрейм веб-сокета в заголовок протокола.
+                        if (header != null)
+                        {
+                            // Установить курсор после заголовка.
+                            mem.Position = Header.Size;
 
-                        mem.Position = 0;
-                        Header header;
-                        try
-                        {
-                            header = Header.Deserialize(mem);
+                            if (header.IsRequest)
+                            // Получен запрос.
+                            {
+                                RequestMessage request;
+                                try
+                                {
+                                    request = ExtensionMethods.Deserialize<RequestMessage>(mem);
+                                }
+                                catch (Exception ex)
+                                // Ошибка десериализации запроса.
+                                {
+                                    // Подготовить ответ с ошибкой.
+                                    Message errorResponse = ErrorResponse(header.Uid, $"Не удалось десериализовать запрос. Ошибка: \"{ex.Message}\".", ResultCode.InvalidRequestFormat);
+
+                                    // Начать отправку результата с ошибкой в отдельном потоке.
+                                    StartSendErrorResponse(socketQueue, errorResponse);
+
+                                    // Вернуться к чтению из сокета.
+                                    continue;
+                                }
+                                // Запрос успешно десериализован.
+                                request.Header = header;
+
+                                // Начать выполнение запроса в отдельном потоке.
+                                StartProcessRequestAsync(socketQueue, request);
+                            }
+                            else
+                            // Получен ответ на запрос.
+                            {
+                                // Удалить запрос из словаря.
+                                if (socketQueue.RequestQueue.TryTake(header.Uid, out TaskCompletionSource tcs))
+                                // Передать ответ ожидающему потоку.
+                                {
+                                    ResponseHeader responseHeader;
+                                    try
+                                    {
+                                        responseHeader = ResponseHeader.Deserialize(mem);
+                                    }
+                                    catch (Exception deserializationException)
+                                    // Произошла ошибка при десериализации заголовка ответа.
+                                    {
+                                        var protocolErrorException = new ProtocolErrorException(ProtocolResponseHeaderErrorMessage, deserializationException);
+
+                                        // Сообщить ожидающему потоку что произошла ошибка при разборе ответа удаленной стороны.
+                                        tcs.OnError(protocolErrorException);
+
+                                        // Вернуться к чтению из сокета.
+                                        continue;
+                                    }
+
+                                    if (responseHeader.ResultCode == ResultCode.Ok)
+                                    // Запрос на удалённой стороне был выполнен успешно.
+                                    {
+                                        object rawResult;
+                                        try
+                                        {
+                                            rawResult = ExtensionMethods.Deserialize(mem, tcs.ResultType);
+                                        }
+                                        catch (Exception deserializationException)
+                                        {
+                                            var protocolErrorException = new ProtocolErrorException($"Произошла ошибка десериализации " +
+                                                $"результата запроса типа \"{tcs.ResultType.FullName}\"", deserializationException);
+
+                                            // Сообщить ожидающему потоку что произошла ошибка при разборе ответа удаленной стороны.
+                                            tcs.OnError(protocolErrorException);
+
+                                            // Вернуться к чтению из сокета.
+                                            continue;
+                                        }
+                                        // Передать результат ожидающему потоку.
+                                        tcs.OnResponse(rawResult);
+                                    }
+                                    else
+                                    // Сервер прислал код ошибки.
+                                    {
+                                        string errorMessage;
+                                        using (var reader = new BinaryReader(mem, Encoding.UTF8, true))
+                                        {
+                                            // Десериализовать тело как строку.
+                                            errorMessage = reader.ReadString();
+                                        }
+
+                                        // Сообщить ожидающему потоку что удаленная сторона вернула ошибку в результате выполнения запроса.
+                                        tcs.OnError(new RemoteException(errorMessage, responseHeader.ResultCode));
+                                    }
+                                }
+                            }
                         }
-                        catch (Exception headerException)
-                        // Не удалось десериализовать заголовок.
+                        else
                         {
-                            var protocolErrorException = new ProtocolErrorException(ProtocolErrorMessage, headerException);
+                            var protocolErrorException = new ProtocolErrorException("Удалённая сторона прислала недостаточно данных для заголовка.");
 
                             // Сообщить потокам что обрыв произошел по вине удалённой стороны.
                             socketQueue.RequestQueue.OnDisconnect(protocolErrorException);
@@ -315,7 +455,7 @@ namespace wRPC
                             {
                                 // Отключаемся от сокета с небольшим таймаутом.
                                 using (var cts = new CancellationTokenSource(3000))
-                                    await socketQueue.WebSocket.CloseAsync(WebSocketCloseStatus.ProtocolError, "Ошибка десериализации сообщения.", cts.Token);
+                                    await socketQueue.WebSocket.CloseAsync(WebSocketCloseStatus.ProtocolError, "Непредвиденное завершение потока данных.", cts.Token);
                             }
                             catch (Exception ex)
                             // Злой обрыв соединения.
@@ -332,96 +472,6 @@ namespace wRPC
 
                             // Завершить поток.
                             return;
-                        }
-
-                        #endregion
-
-                        if (header.IsRequest)
-                        // Получен запрос.
-                        {
-                            RequestMessage request;
-                            try
-                            {
-                                request = ExtensionMethods.Deserialize<RequestMessage>(mem);
-                            }
-                            catch (Exception ex)
-                            // Ошибка десериализации запроса.
-                            {
-                                // Подготовить ответ с ошибкой.
-                                Message errorResponse = ErrorResponse(header.Uid, $"Не удалось десериализовать запрос. Ошибка: \"{ex.Message}\".", ResultCode.InvalidRequestFormat);
-
-                                // Начать отправку результата с ошибкой в отдельном потоке.
-                                StartSendErrorResponse(socketQueue, errorResponse);
-
-                                // Вернуться к чтению из сокета.
-                                continue;
-                            }
-
-                            // Запрос успешно десериализован.
-                            request.Header = header;
-
-                            // Начать выполнение запроса в отдельном потоке.
-                            StartProcessRequestAsync(socketQueue, request);
-                        }
-                        else
-                        // Получен ответ на запрос.
-                        {
-                            // Передать ответ ожидающему потоку.
-                            if (socketQueue.RequestQueue.TryTake(header.Uid, out TaskCompletionSource tcs))
-                            {
-                                ResponseHeader responseHeader;
-                                try
-                                {
-                                    responseHeader = ResponseHeader.Deserialize(mem);
-                                }
-                                catch (Exception deserializationException)
-                                // Произошла ошибка при десериализации заголовка ответа.
-                                {
-                                    var protocolErrorException = new ProtocolErrorException(ProtocolErrorMessage, deserializationException);
-
-                                    // Сообщить ожидающему потоку что произошла ошибка при разборе ответа удаленной стороны.
-                                    tcs.OnError(protocolErrorException);
-
-                                    // Вернуться к чтению из сокета.
-                                    continue;
-                                }
-
-                                if (responseHeader.ResultCode == ResultCode.Ok)
-                                // Запрос на удалённой стороне был выполнен успешно.
-                                {
-                                    object rawResult;
-                                    try
-                                    {
-                                        rawResult = ExtensionMethods.Deserialize(mem, tcs.ResultType);
-                                    }
-                                    catch (Exception deserializationException)
-                                    {
-                                        var protocolErrorException = new ProtocolErrorException(ProtocolErrorMessage, deserializationException);
-
-                                        // Сообщить ожидающему потоку что произошла ошибка при разборе ответа удаленной стороны.
-                                        tcs.OnError(protocolErrorException);
-
-                                        // Вернуться к чтению из сокета.
-                                        continue;
-                                    }
-
-                                    // Передать результат ожидающему потоку.
-                                    tcs.OnResponse(rawResult);
-                                }
-                                else
-                                // Сервер прислал код ошибки.
-                                {
-                                    string errorMessage;
-                                    using (var reader = new BinaryReader(mem, Encoding.UTF8, true))
-                                    {
-                                        // Десериализовать тело как строку.
-                                        errorMessage = reader.ReadString();
-                                    }
-
-                                    // Сообщить ожидающему потоку что удаленная сторона вернула ошибку в результате выполнения запроса.
-                                    tcs.OnError(new RemoteException(errorMessage, responseHeader.ResultCode));
-                                }
-                            }
                         }
                     }
                 } while (true);

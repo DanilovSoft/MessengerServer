@@ -29,7 +29,7 @@ namespace wRPC
         }
 
         /// <summary>
-        /// Потокобезопасно добавляет запрос в очередь запросов и возвращает уникальный идентификатор.
+        /// Потокобезопасно добавляет запрос в словарь запросов и возвращает уникальный идентификатор.
         /// </summary>
         /// <exception cref="Exception">Происходит если уже происходил обрыв соединения.</exception>
         public TaskCompletionSource CreateRequest(RequestMessage request, Type resultType, out short uid)

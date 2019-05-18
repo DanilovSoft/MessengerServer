@@ -1,4 +1,4 @@
-﻿// Version 1.0.2
+﻿// Version 1.0.3
 
 using System;
 using System.Buffers;
@@ -19,16 +19,32 @@ namespace System.IO
             get => _position;
             set
             {
-                if (value < 0)
+                if (value >= 0)
+                    _position = (int)value;
+                else
                     throw new ArgumentOutOfRangeException("Non-negative number required.");
-
-                _position = (int)value;
             }
         }
-        public int Capacity { get => _arrayBuffer.Length; }
+        public int Capacity
+        {
+            get => _arrayBuffer.Length;
+            set
+            {
+                if (value != _arrayBuffer.Length)
+                {
+                    if (value > _arrayBuffer.Length)
+                    {
+                        ReDim(value);
+                    }
+                    else
+                        throw new ArgumentOutOfRangeException("Capacity was less than the current size.");
+                }
+            }
+
+        }
         private byte[] _arrayBuffer = Array.Empty<byte>();
         private int _position;
-        private int _arrayBufferPosition;
+        private int _bufferPosition;
         private int _disposed;
         private int _length;
 
@@ -85,6 +101,7 @@ namespace System.IO
                     break;
             }
 
+            // Позиция не может быть отрицательной.
             if (newPosition >= 0)
             {
                 _position = newPosition;
@@ -128,9 +145,9 @@ namespace System.IO
                         _position = newLength;
                     }
 
-                    if (_arrayBufferPosition > newLength)
+                    if (_bufferPosition > newLength)
                     {
-                        _arrayBufferPosition = newLength;
+                        _bufferPosition = newLength;
                     }
                 }
                 _length = newLength;
@@ -159,7 +176,7 @@ namespace System.IO
                     _position += count;
 
                     // Курсор буфера совпадает с позицией стрима.
-                    _arrayBufferPosition = _position;
+                    _bufferPosition = _position;
 
                     // Вернуть сколько байт прочитано на самом деле.
                     return count;
@@ -184,7 +201,7 @@ namespace System.IO
             // В буфере достаточно места для новых данных.
             {
                 // Проверить соосность курсора и позиции стрима.
-                int deltaPosition = _position - _arrayBufferPosition;
+                int deltaPosition = _position - _bufferPosition;
 
                 // Если курсор и позиция стрима соосны.
                 if (deltaPosition == 0)
@@ -194,17 +211,25 @@ namespace System.IO
                         _length = requiredSize;
                 }
                 else
-                // Курсор необходимо выровнять под позицию стрима.
+                // Пользователь сместил позицию стрима.
                 {
-                    // Если позиция стрима была сдвинута правее курсора буфера.
+                    // Если позицию стрима сместили правее курсора буфера.
                     if (deltaPosition > 0)
-                    // Увеличивать буфер не нужно но нужно обнулить часть до позиции стрима.
                     {
-                        // Обнулить правую часть буфера до позиции стрима.
-                        Array.Clear(_arrayBuffer, _arrayBufferPosition, deltaPosition);
+                        // Сколько байт нужно обнулить.
+                        int lengthOverhead = _position - _length;
 
-                        // Размер стрима теперь увеличен до необходимого.
-                        _length = requiredSize;
+                        if (lengthOverhead > 0)
+                        {
+                            // Обнулить правую часть буфера до позиции стрима.
+                            Array.Clear(_arrayBuffer, _bufferPosition, length: lengthOverhead);
+
+                            if (_length < requiredSize)
+                            {
+                                // Размер стрима теперь увеличен до необходимого.
+                                _length = requiredSize;
+                            }
+                        }
                     }
                     else
                     // Позиция стрима меньше курсора буфера.
@@ -227,11 +252,11 @@ namespace System.IO
                 ReDim(requiredSize);
 
                 // Если позиция больше чем старый буфер то нужно заполнить нулями разницу.
-                int clearLen = _position - _arrayBufferPosition;
+                int clearLen = _position - _bufferPosition;
                 if (clearLen > 0)
                 {
                     // Заполнить нулями до позиции стрима.
-                    Array.Clear(_arrayBuffer, _arrayBufferPosition, clearLen);
+                    Array.Clear(_arrayBuffer, _bufferPosition, clearLen);
                 }
 
                 // Размер стрима увеличен до требуемого размера.
@@ -245,7 +270,7 @@ namespace System.IO
             _position += count;
 
             // Курсор буфера совпадает с позицией стрима.
-            _arrayBufferPosition = _position;
+            _bufferPosition = _position;
         }
 
         /// <summary>
@@ -259,13 +284,13 @@ namespace System.IO
             byte[] newArray = _pool.Rent(newSize);
 
             // Если старый буфер был не пустой.
-            if (_arrayBufferPosition > 0)
+            if (_length > 0)
             {
                 // Скопировать полностью старый массив в новый.
-                Buffer.BlockCopy(_arrayBuffer, 0, newArray, 0, _arrayBufferPosition);
+                Buffer.BlockCopy(_arrayBuffer, 0, newArray, 0, count: _length);
             }
 
-            // Если буфер не является Array.Empty<byte>().
+            // Если буфер не является Array.Empty<byte>.
             if (_arrayBuffer.Length > 0)
             {
                 // Вернуть старый буфер в пул.

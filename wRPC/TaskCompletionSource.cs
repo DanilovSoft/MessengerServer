@@ -8,12 +8,18 @@ using System.Threading.Tasks;
 
 namespace wRPC
 {
+    /// <summary>
+    /// Атомарный <see langword="await"/>'ер. Связывает запрос с его результатом.
+    /// </summary>
     [DebuggerDisplay("{DebugDisplay,nq}")]
     internal sealed class TaskCompletionSource : INotifyCompletion
     {
         [DebuggerBrowsable(DebuggerBrowsableState.Never)]
         private string DebugDisplay => "{" + $"{_requestMessage.ActionName}" + "}";
         private readonly RequestMessage _requestMessage;
+        /// <summary>
+        /// Тип ожидаемого результата.
+        /// </summary>
         public readonly Type ResultType;
         /// <summary>
         /// Флаг используется как fast-path
@@ -35,7 +41,9 @@ namespace wRPC
 
         public object GetResult()
         {
-            var ex = _exception;
+            // Копируем volatile ссылку.
+            Exception ex = _exception;
+
             if (ex != null)
                 throw ex;
 
@@ -48,7 +56,7 @@ namespace wRPC
         public void OnError(Exception exception)
         {
             _exception = exception;
-            OnResult();
+            OnResultAtomic();
         }
 
         /// <summary>
@@ -57,10 +65,10 @@ namespace wRPC
         public void OnResponse(object rawResult)
         {
             _response = rawResult;
-            OnResult();
+            OnResultAtomic();
         }
 
-        private void OnResult()
+        private void OnResultAtomic()
         {
             // Результат уже установлен. Можно установить fast-path.
             _isCompleted = true;
