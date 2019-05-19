@@ -36,6 +36,7 @@ namespace wRPC
         private bool _disposed;
         public ServiceCollection IoC { get; }
         private int _startAccept;
+        public ServiceProvider ServiceProvider { get; private set; }
 
         // ctor.
         public Listener(int port)
@@ -46,7 +47,7 @@ namespace wRPC
             _wsServ.Connected += Listener_OnConnected;
 
             // Контроллеры будем искать в сборке которая вызвала текущую функцию.
-            Assembly controllersAssembly = Assembly.GetCallingAssembly();
+            var controllersAssembly = Assembly.GetCallingAssembly();
 
             // Сборка с контроллерами не должна быть текущей сборкой.
             Debug.Assert(controllersAssembly != Assembly.GetExecutingAssembly());
@@ -61,20 +62,25 @@ namespace wRPC
             }
         }
 
+        /// <summary>
+        /// Потокобезопасно начинает приём новых подключений.
+        /// </summary>
+        /// <exception cref="InvalidOperationException"/>
         public void StartAccept()
         {
             if (Interlocked.CompareExchange(ref _startAccept, 1, 0) == 0)
             {
+                ServiceProvider = IoC.BuildServiceProvider();
                 _wsServ.StartAccept();
             }
             else
-                throw new InvalidOperationException("Already started");
+                throw new InvalidOperationException("Already started.");
         }
 
         private void Listener_OnConnected(object sender, MyWebSocket clientConnection)
         {
             // Создать контекст для текущего подключения.
-            var context = new ServerContext(clientConnection, IoC, this);
+            var context = new ServerContext(clientConnection, ServiceProvider, listener: this);
         }
 
         public void Dispose()

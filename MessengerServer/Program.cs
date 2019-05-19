@@ -9,6 +9,7 @@ using wRPC;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Configuration;
 using System.IO;
+using Microsoft.Extensions.Logging;
 
 namespace MessengerServer
 {
@@ -26,7 +27,6 @@ namespace MessengerServer
                     var configurationBuilder = new ConfigurationBuilder()
                         .SetBasePath(Directory.GetCurrentDirectory())
                         .AddJsonFile("appsettings.json", optional: true, reloadOnChange: true)
-                        //.AddJsonFile($"appsettings.{MigratorProgram.EnvironmentName}.json", optional: true)
                         .AddJsonFile("appsettings.local.json", optional: true);
 
                     IConfigurationRoot configuration = configurationBuilder.Build();
@@ -40,8 +40,16 @@ namespace MessengerServer
                         listener.IoC.AddScoped(x => new CustomEfDbContext(modelStore, builder.Options));
                         listener.IoC.AddScoped<IDataProvider, EfDataProvider>();
 
-                        Console.WriteLine("Ожидание подключений...");
+                        listener.IoC.AddLogging(loggingBuilder => 
+                        {
+                            loggingBuilder
+                                .AddConsole()
+                                .AddDebug();
+                        });
+
                         listener.StartAccept();
+                        ILogger logger = listener.ServiceProvider.GetRequiredService<ILogger<Program>>();
+                        logger.LogInformation("Ожидание подключений...");
 
                         Thread.Sleep(-1);
                     }

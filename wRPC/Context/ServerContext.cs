@@ -46,10 +46,8 @@ namespace wRPC
         public UserConnections UserConnections { get => _userConnections; private set => _userConnections = value; }
         private readonly RijndaelEnhanced _jwt;
 
-        /// <summary>
-        /// Конструктор сервера.
-        /// </summary>
-        internal ServerContext(MyWebSocket clientConnection, ServiceCollection ioc, Listener listener) : base(clientConnection, ioc)
+        // ctor.
+        internal ServerContext(MyWebSocket clientConnection, ServiceProvider serviceProvider, Listener listener) : base(clientConnection, serviceProvider)
         {
             Listener = listener;
 
@@ -63,10 +61,10 @@ namespace wRPC
         }
 
         /// <summary>
-            /// Производит авторизацию текущего подключения.
-            /// </summary>
-            /// <param name="userId"></param>
-            /// <exception cref="RemoteException"/>
+        /// Производит авторизацию текущего подключения.
+        /// </summary>
+        /// <param name="userId"></param>
+        /// <exception cref="RemoteException"/>
         public BearerToken Authorize(int userId)
         {
             // Функцию могут вызвать из нескольких потоков.
@@ -93,7 +91,7 @@ namespace wRPC
 
                 var token = new BearerToken
                 {
-                    Token = encryptedToken,
+                    Key = encryptedToken,
                     ExpiresAt = tokenValidity
                 };
 

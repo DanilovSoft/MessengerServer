@@ -11,25 +11,28 @@ using Contract;
 using Contract.Dto;
 using System.Drawing.Imaging;
 using System.Linq;
+using Microsoft.Extensions.Logging;
 
 namespace MessengerServer.Controllers
 {
     public sealed class UtilsController : ServerController, IUtilsController
     {
         private const long AvatarQuality = 85; // В процентах.
+        private readonly ILogger _logger;
 
-        public UtilsController()
+        public UtilsController(ILogger<UtilsController> logger)
         {
-
+            _logger = logger;
         }
 
         public async Task<byte[]> ShrinkImage(Uri ImageUri, int pixelSize)
         {
+            _logger.LogInformation($"Сжатие изображения до {pixelSize}px");
+
             using (Bitmap bitmap = await ResizeImageAsync(ImageUri, pixelSize))
             {
                 using (var mem = new MemoryPoolStream(4096))
                 {
-                    //bitmap.Save(mem, ImageFormat.Png);
                     BitmapToJpeg(mem, bitmap);
                     byte[] serialized = mem.ToArray();
                     return serialized;
@@ -47,7 +50,7 @@ namespace MessengerServer.Controllers
                 {
                     codecParams.Param[0] = ratio;
                     ImageCodecInfo jpegCodecInfo = ImageCodecInfo.GetImageEncoders().First(x => x.FormatID == ImageFormat.Jpeg.Guid);
-                    bitmap.Save(stream, jpegCodecInfo, codecParams); // Save to JPG
+                    bitmap.Save(stream, jpegCodecInfo, codecParams); // Save to JPG.
                 }
             }
         }

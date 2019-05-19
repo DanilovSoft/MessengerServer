@@ -3,6 +3,7 @@ using Contract.Dto;
 using DbModel;
 using EfProvider;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -17,10 +18,12 @@ namespace MessengerServer.Controllers
     public sealed class HomeController : ServerController, IHomeController
     {
         private readonly IDataProvider _dataProvider;
+        private readonly ILogger _logger;
 
-        public HomeController(IDataProvider dataProvider)
+        public HomeController(IDataProvider dataProvider, ILogger<HomeController> logger)
         {
             _dataProvider = dataProvider;
+            _logger = logger;
         }
 
         // Возвращает список контактов пользователя.
@@ -93,7 +96,7 @@ namespace MessengerServer.Controllers
 
         public async Task<SendMessageResult> SendMessage(string message, long groupId)
         {
-            Console.WriteLine($"Получено сообщение: \"{message}\"");
+            _logger.LogInformation($"Получено сообщение: \"{message}\"");
 
             // Пользователи входящие в группу.
             int[] users = await _dataProvider
@@ -146,6 +149,8 @@ namespace MessengerServer.Controllers
 
         public async Task Typing(long groupId)
         {
+            _logger.LogInformation($"Пользователь {UserId} печатает.");
+
             // Пользователи входящие в группу.
             int[] users = await _dataProvider
                 .Get<GroupDb>()

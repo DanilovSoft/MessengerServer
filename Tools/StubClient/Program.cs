@@ -5,6 +5,7 @@ using wRPC;
 using Contract;
 using Contract.Dto;
 using System.IO;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace StubClient
 {
@@ -28,22 +29,24 @@ namespace StubClient
 
             using (var client = new ClientConnection("127.0.0.1", Port))
             {
+                client.ConfigureService(ioc => { });
+
                 var authController = client.GetProxy<IAuthController>();
                 var homeController = client.GetProxy<IHomeController>();
                 var utilsController = client.GetProxy<IUtilsController>();
 
                 Console.WriteLine("Авторизация...");
-                AuthorizationResult token;
+                AuthorizationResult authorizationResult;
                 try
                 {
-                    token = await authController.Authorize(login: "Test2", password: "123456");
+                    authorizationResult = await authController.Authorize(login: "Test2", password: "123456");
                 }
                 catch (Exception ex)
                 {
                     throw;
                 }
                 
-                client.BearerToken = token.Token.Token;
+                client.BearerToken = authorizationResult.BearerToken.Key;
 
                 //ChatUser[] groups = await homeController.GetConversations();
                 //var user = groups[3];

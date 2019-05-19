@@ -8,11 +8,14 @@ namespace wRPC
     [JsonObject]
     public sealed class BearerToken
     {
+        /// <summary>
+        /// Зашифрованное тело токена.
+        /// </summary>
         [JsonProperty]
-        public byte[] Token;
+        public byte[] Key;
 
         /// <summary>
-        /// Время актуальности токена в секундах.
+        /// Время актуальности токена.
         /// </summary>
         [JsonProperty]
         public TimeSpan ExpiresAt;

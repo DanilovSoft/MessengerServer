@@ -12,16 +12,19 @@ using DbModel.Store;
 using EfProvider;
 using wRPC;
 using Contract.Dto;
+using Microsoft.Extensions.Logging;
 
 namespace MessengerServer.Controllers
 {
     public sealed class AuthController : ServerController, IAuthController
     {
         private readonly IDataProvider _dataProvider;
+        private readonly ILogger _logger;
 
-        public AuthController(IDataProvider dataProvider)
+        public AuthController(IDataProvider dataProvider, ILogger<AuthController> logger)
         {
             _dataProvider = dataProvider;
+            _logger = logger;
         }
 
         [AllowAnonymous]
@@ -41,16 +44,19 @@ namespace MessengerServer.Controllers
                 .SingleOrDefaultAsync(Context.CancellationToken);
 
             if (user == null)
+            {
+                _logger.LogWarning("Не верный логин и/или пароль");
                 throw new RemoteException("Не верный логин и/или пароль");
+            }
 
             // Авторизовываем текущее подключение.
-            BearerToken token = Context.Authorize(userId: user.Id);
+            BearerToken bearerToken = Context.Authorize(userId: user.Id);
 
-            Console.WriteLine($"Авторизован пользователь: \"{login}\"");
+            _logger.LogInformation($"Авторизован пользователь: \"{login}\"");
 
             return new AuthorizationResult
             {
-                Token = token,
+                BearerToken = bearerToken,
                 UserId = user.Id,
                 UserName = user.Name,
                 ImageUrl = new Uri(user.ImageUrl)
@@ -60,7 +66,14 @@ namespace MessengerServer.Controllers
         [AllowAnonymous]
         public bool AuthorizeToken(byte[] token)
         {
-            return Context.AuthorizeToken(token);
+            bool authorized = Context.AuthorizeToken(token);
+
+            if(authorized)
+            {
+                _logger.LogInformation($"Авторизован пользователь {UserId} по токену.");
+            }
+
+            return authorized;
         }
     }
 }

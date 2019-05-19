@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Microsoft.Extensions.DependencyInjection;
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
@@ -36,14 +37,29 @@ namespace wRPC
         /// Токен авторизации передаваемый серверу при начальном подключении.
         /// </summary>
         public byte[] BearerToken { get; set; }
+        /// <summary>
+        /// <see langword="true"/> если соединение авторизовано на сервере.
+        /// </summary>
         public bool IsAuthorized { get; private set; }
+        private Action<ServiceCollection> _iocConfigure;
 
+        // ctor.
         /// <summary>
         /// Создаёт контекст клиентского соединения.
         /// </summary>
         public ClientConnection(Uri uri) : this(Assembly.GetCallingAssembly(), uri)
         {
 
+        }
+
+        /// <summary>
+        /// Позволяет настроить IoC контейнер.
+        /// Выполняется единожды при инициализации подключения.
+        /// </summary>
+        /// <param name="configure"></param>
+        public void ConfigureService(Action<ServiceCollection> configure)
+        {
+            _iocConfigure = configure;
         }
 
         /// <summary>
@@ -107,6 +123,13 @@ namespace wRPC
                 // Необходима повторная проверка.
                 if (socketQueue == null)
                 {
+                    if (ServiceProvider == null)
+                    {
+                        var ioc = new ServiceCollection();
+                        _iocConfigure?.Invoke(ioc);
+                        ConfigureIoC(ioc);
+                    }
+
                     // Новый сокет.
                     var ws = new MyClientWebSocket();
 
@@ -132,12 +155,11 @@ namespace wRPC
                     byte[] bearerTokenCopy = BearerToken;
 
                     // Если токен установлен то отправить его на сервер что-бы авторизовать текущее подключение.
-                    bool authorized = false;
                     if (bearerTokenCopy != null)
                     {
                         try
                         {
-                            authorized = await AuthorizeAsync(socketQueue, bearerTokenCopy).ConfigureAwait(false);
+                            IsAuthorized = await AuthorizeAsync(socketQueue, bearerTokenCopy).ConfigureAwait(false);
                         }
                         catch (Exception ex)
                         // Обрыв соединения.
@@ -148,9 +170,7 @@ namespace wRPC
                         }
                     }
 
-                    IsAuthorized = authorized;
-
-                    Debug.WriteIf(authorized, "Соединение успешно авторизовано");
+                    Debug.WriteIf(IsAuthorized, "Соединение успешно авторизовано");
 
                     // Открыть публичный доступ к этому сокету.
                     // Установка этого свойства должно быть самым последним действием.
@@ -161,22 +181,22 @@ namespace wRPC
         }
 
         /// <summary>
-        /// Отправляет специфический запрос содержащий токен авторизации. Ожидает ответ. При успешном выполнении сокет считается авторизованным.
+        /// Отправляет специфический запрос содержащий токен авторизации. Ожидает ответ.
         /// </summary>
         private async Task<bool> AuthorizeAsync(SocketQueue socketQueue, byte[] bearerToken)
         {
             var message = new RequestMessage()
             {
+                Header = new Header(),
                 ActionName = "Auth/AuthorizeToken",
                 Args = new Arg[]
                 {
                     new Arg("token", bearerToken)
                 },
-                Header = new Header(),
             };
 
             // Отправить запрос и получить ответ.
-            object result = await ExecuteRequestAsync(message, typeof(bool), socketQueue).ConfigureAwait(false);
+            object result = await ExecuteRequestAsync(message, returnType: typeof(bool), socketQueue).ConfigureAwait(false);
 
             return (bool)result;
         }

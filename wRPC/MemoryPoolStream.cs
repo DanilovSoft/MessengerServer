@@ -1,4 +1,4 @@
-﻿// Version 1.0.3
+﻿// Version 1.0.4
 
 using System;
 using System.Buffers;
@@ -64,7 +64,12 @@ namespace System.IO
             _clearOnReturn = clearOnReturn;
         }
 
-        public byte[] GetBuffer()
+        /// <summary>
+        /// Возвращает массив байтов, из которого был создан этот поток.
+        /// Не используйте этот массив после любых операций с потоком.
+        /// </summary>
+        /// <returns></returns>
+        public byte[] DangerousGetBuffer()
         {
             ThrowIfDisposed();
 
