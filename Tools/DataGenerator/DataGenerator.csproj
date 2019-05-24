@@ -16,9 +16,9 @@
     </ItemGroup>
 
     <ItemGroup>
-      <ProjectReference Include="..\..\DBCore\DBCore.csproj" />
-      <ProjectReference Include="..\..\DbModel\DbModel.csproj" />
-      <ProjectReference Include="..\..\EfProvider\EfProvider.csproj" />
+      <ProjectReference Include="..\..\DataBase\DBCore\DBCore.csproj" />
+      <ProjectReference Include="..\..\DataBase\DbModel\DbModel.csproj" />
+      <ProjectReference Include="..\..\DataBase\EfProvider\EfProvider.csproj" />
     </ItemGroup>
 
     <ItemGroup>
