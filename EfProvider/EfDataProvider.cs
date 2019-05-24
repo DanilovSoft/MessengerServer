@@ -7,7 +7,8 @@ using System.Data;
 using System.Linq;
 using System.Threading.Tasks;
 using System;
-using DbModel.Base;
+using DBCore;
+using DBCore.Entities;
 using EfProvider.Extensions;
 using Microsoft.EntityFrameworkCore.ChangeTracking;
 

@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
-using DbModel.Base;
+using DBCore.Entities;
 using JetBrains.Annotations;
 
 namespace DbModel

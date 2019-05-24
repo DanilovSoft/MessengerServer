@@ -1,7 +1,7 @@
 ﻿using System;
 using System.ComponentModel.DataAnnotations;
 
-namespace DbModel.Base
+namespace DBCore.Entities
 {
     public interface IEntity
     {

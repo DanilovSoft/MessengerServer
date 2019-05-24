@@ -1,6 +1,6 @@
 using System;
 using System.ComponentModel.DataAnnotations.Schema;
-using DbModel.Base;
+using DBCore.Entities;
 using JetBrains.Annotations;
 
 namespace DbModel
@@ -12,7 +12,7 @@ namespace DbModel
         public Guid Id { get; set; }
         public long GroupId { get; set; }
         /// <summary>
-        /// Пользователь создавший сообщение.
+        /// пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ.
         /// </summary>
         public int UserId { get; set; }
         public string Text { get; set; }

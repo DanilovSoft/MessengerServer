@@ -1,9 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
-using DbModel.Store;
+using DBCore;
+using DBCore.Store;
 using EfProvider.Config;
 using JetBrains.Annotations;
 using Microsoft.EntityFrameworkCore;
@@ -11,11 +11,10 @@ using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.EntityFrameworkCore.Metadata.Internal;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Debug;
-using Microsoft.EntityFrameworkCore.ChangeTracking;
 
 namespace EfProvider
 {
-    public class CustomEfDbContext : DbContext
+    public class CustomEfDbContext : BaseDbContext
     {
         private static readonly DebugLoggerProvider DebugLoggerProvider = new DebugLoggerProvider();
         private readonly LoggerFactory LoggerFactory;
@@ -33,30 +32,7 @@ namespace EfProvider
             _modeTypes = modelStore.GetModels();
             LoggerFactory = new LoggerFactory(new[] { DebugLoggerProvider });
         }
-
-        public void Reset()
-        {
-            EntityEntry[] entries = ChangeTracker.Entries()
-                .Where(e => e.State != EntityState.Unchanged)
-                .ToArray();
-
-            foreach (EntityEntry entry in entries)
-            {
-                switch (entry.State)
-                {
-                    case EntityState.Modified:
-                        entry.State = EntityState.Unchanged;
-                        break;
-                    case EntityState.Added:
-                        entry.State = EntityState.Detached;
-                        break;
-                    case EntityState.Deleted:
-                        entry.Reload();
-                        break;
-                }
-            }
-        }
-
+        
         protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
         {
             base.OnConfiguring(optionsBuilder);

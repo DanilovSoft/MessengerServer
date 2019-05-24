@@ -1,6 +1,6 @@
 using System;
 using System.ComponentModel.DataAnnotations.Schema;
-using DbModel.Base;
+using DBCore.Entities;
 using JetBrains.Annotations;
 
 namespace DbModel

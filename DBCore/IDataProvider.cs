@@ -3,11 +3,11 @@ using System.Collections.Generic;
 using System.Data;
 using System.Linq;
 using System.Threading.Tasks;
-using DbModel.Base;
+using DBCore.Entities;
 using JetBrains.Annotations;
 using Microsoft.EntityFrameworkCore.Storage;
 
-namespace EfProvider
+namespace DBCore
 {
     [UsedImplicitly(ImplicitUseTargetFlags.WithMembers)]
     public interface IDataProvider

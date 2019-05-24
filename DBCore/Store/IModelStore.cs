@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 
-namespace DbModel.Store
+namespace DBCore.Store
 {
     public interface IModelStore
     {

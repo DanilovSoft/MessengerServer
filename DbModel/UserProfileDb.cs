@@ -1,5 +1,5 @@
 using System.ComponentModel.DataAnnotations.Schema;
-using DbModel.Base;
+using DBCore.Entities;
 using DbModel.DbTypes;
 using JetBrains.Annotations;
 

@@ -1,4 +1,5 @@
 using System;
+using DBCore.Extensions;
 using Npgsql;
 
 namespace EfProvider.Extensions

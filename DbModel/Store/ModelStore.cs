@@ -2,7 +2,8 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
-using DbModel.Base;
+using DBCore.Entities;
+using DBCore.Store;
 using JetBrains.Annotations;
 
 namespace DbModel.Store

@@ -1,6 +1,6 @@
 using System;
 
-namespace EfProvider.Extensions
+namespace DBCore.Extensions
 {
     public class ObjectAlreadyExistsException : Exception
     {

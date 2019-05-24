@@ -1,6 +1,6 @@
 using System;
 
-namespace DbModel.Base
+namespace DBCore.Entities
 {
     public interface IDeletedUtc
     {

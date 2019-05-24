@@ -4,8 +4,6 @@ using System.Threading.Tasks;
 using wRPC;
 using Contract;
 using Contract.Dto;
-using System.IO;
-using Microsoft.Extensions.DependencyInjection;
 
 namespace StubClient
 {

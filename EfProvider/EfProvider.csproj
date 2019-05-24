@@ -14,6 +14,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\DBCore\DBCore.csproj" />
     <ProjectReference Include="..\DbModel\DbModel.csproj" />
   </ItemGroup>
 

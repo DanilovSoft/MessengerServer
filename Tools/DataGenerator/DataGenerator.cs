@@ -3,9 +3,9 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Bogus;
+using DBCore;
 using DbModel;
 using DbModel.DbTypes;
-using EfProvider;
 using Microsoft.EntityFrameworkCore;
 
 namespace DataGenerator

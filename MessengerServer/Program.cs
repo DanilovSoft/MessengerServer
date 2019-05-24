@@ -1,14 +1,13 @@
 ﻿using DbModel.Store;
 using EfProvider;
-using MessengerServer.Controllers;
 using Microsoft.EntityFrameworkCore;
 using System;
-using System.Collections.Generic;
 using System.Threading;
 using wRPC;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Configuration;
 using System.IO;
+using DBCore;
 using Microsoft.Extensions.Logging;
 
 namespace MessengerServer

@@ -16,6 +16,7 @@
     </ItemGroup>
 
     <ItemGroup>
+      <ProjectReference Include="..\..\DBCore\DBCore.csproj" />
       <ProjectReference Include="..\..\DbModel\DbModel.csproj" />
       <ProjectReference Include="..\..\EfProvider\EfProvider.csproj" />
     </ItemGroup>
