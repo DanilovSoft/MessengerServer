@@ -11,6 +11,12 @@ namespace EfProvider.Config
             UserGroupConfig(builder);
             MessageConfig(builder);
             GroupConfig(builder);
+            ContactConfig(builder);
+        }
+
+        private static void ContactConfig(ModelBuilder builder)
+        {
+            builder.Entity<ContactDb>().HasKey(x => new {UserFirstId = x.WhoId, UserSecondId = x.WhomId});
         }
 
         private static void GroupConfig(ModelBuilder builder)

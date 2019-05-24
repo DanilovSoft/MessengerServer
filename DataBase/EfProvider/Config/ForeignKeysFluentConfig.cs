@@ -14,6 +14,16 @@ namespace EfProvider.Config
                 .OnDelete(DeleteBehavior.Restrict);
 
             builder.Entity<UserDb>()
+                .HasMany(x => x.Contacts)
+                .WithOne(x => x.Who)
+                .HasForeignKey(x => x.WhoId);
+            
+            builder.Entity<UserDb>()
+                .HasMany(x => x.InContacts)
+                .WithOne(x => x.Whom)
+                .HasForeignKey(x => x.WhomId);
+
+            builder.Entity<UserDb>()
                 .HasMany(n => n.Creations)
                 .WithOne(n => n.Creator)
                 .HasForeignKey(d => d.CreatorId)

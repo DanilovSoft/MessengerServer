@@ -35,5 +35,7 @@ namespace DbModel
         public ICollection<GroupDb> Creations { get; set; }
         public ICollection<UserGroupDb> Invitations { get; set; }
         public ICollection<MessageDb> Messages { get; set; }
+        public ICollection<ContactDb> Contacts { get; set; }
+        public ICollection<ContactDb> InContacts { get; set; }
     }
 }
