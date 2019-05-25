@@ -3,6 +3,7 @@
     <PropertyGroup>
         <OutputType>Exe</OutputType>
         <TargetFramework>netcoreapp2.2</TargetFramework>
+        <LangVersion>latest</LangVersion>
     </PropertyGroup>
 
     <ItemGroup>
@@ -15,8 +16,9 @@
     </ItemGroup>
 
     <ItemGroup>
-      <ProjectReference Include="..\..\DbModel\DbModel.csproj" />
-      <ProjectReference Include="..\..\EfProvider\EfProvider.csproj" />
+      <ProjectReference Include="..\..\DataBase\DBCore\DBCore.csproj" />
+      <ProjectReference Include="..\..\DataBase\DbModel\DbModel.csproj" />
+      <ProjectReference Include="..\..\DataBase\EfProvider\EfProvider.csproj" />
     </ItemGroup>
 
     <ItemGroup>

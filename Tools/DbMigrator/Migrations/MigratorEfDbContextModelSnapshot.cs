@@ -23,6 +23,19 @@ namespace DbMigrator.Migrations
                 .HasAnnotation("ProductVersion", "2.2.4-servicing-10062")
                 .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
+            modelBuilder.Entity("DbModel.ContactDb", b =>
+                {
+                    b.Property<int>("WhoId");
+
+                    b.Property<int>("WhomId");
+
+                    b.HasKey("WhoId", "WhomId");
+
+                    b.HasIndex("WhomId");
+
+                    b.ToTable("Contacts");
+                });
+
             modelBuilder.Entity("DbModel.GroupDb", b =>
                 {
                     b.Property<long>("Id");
@@ -155,6 +168,19 @@ namespace DbMigrator.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("UserProfiles");
+                });
+
+            modelBuilder.Entity("DbModel.ContactDb", b =>
+                {
+                    b.HasOne("DbModel.UserDb", "Who")
+                        .WithMany("Contacts")
+                        .HasForeignKey("WhoId")
+                        .OnDelete(DeleteBehavior.Cascade);
+
+                    b.HasOne("DbModel.UserDb", "Whom")
+                        .WithMany("InContacts")
+                        .HasForeignKey("WhomId")
+                        .OnDelete(DeleteBehavior.Cascade);
                 });
 
             modelBuilder.Entity("DbModel.GroupDb", b =>
