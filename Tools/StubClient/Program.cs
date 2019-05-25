@@ -6,6 +6,7 @@ using Contract;
 using Contract.Dto;
 using System.IO;
 using Microsoft.Extensions.DependencyInjection;
+using System.Threading.Channels;
 
 namespace StubClient
 {
@@ -15,6 +16,9 @@ namespace StubClient
 
         static async Task Main()
         {
+            //var channel = Channel.CreateBounded<int>(new BoundedChannelOptions(1) { });
+            //channel.Reader.ReadAsync
+
             Console.Title = "Клиент";
 
             #region Debug: Ждем запуск сервера
