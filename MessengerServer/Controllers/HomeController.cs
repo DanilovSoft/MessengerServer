@@ -1,16 +1,14 @@
 ﻿using Contract;
 using Contract.Dto;
 using DbModel;
-using EfProvider;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using System;
-using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
-using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using DBCore;
 using wRPC;
 
 namespace MessengerServer.Controllers
@@ -97,6 +95,8 @@ namespace MessengerServer.Controllers
         public async Task<SendMessageResult> SendMessage(string message, long groupId)
         {
             _logger.LogInformation($"Получено сообщение: \"{message}\"");
+
+            return null;
 
             // Пользователи входящие в группу.
             int[] users = await _dataProvider

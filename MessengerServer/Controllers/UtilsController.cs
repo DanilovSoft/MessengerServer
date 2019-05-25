@@ -1,14 +1,11 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.IO;
 using System.Net.Http;
-using System.Text;
 using System.Threading.Tasks;
 using wRPC;
 using Contract;
-using Contract.Dto;
 using System.Drawing.Imaging;
 using System.Linq;
 using Microsoft.Extensions.Logging;

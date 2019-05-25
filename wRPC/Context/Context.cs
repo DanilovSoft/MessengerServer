@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Linq;
-using System.Buffers;
 using System.Collections.Generic;
 using System.IO;
 using System.Net.WebSockets;
@@ -9,11 +8,11 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Diagnostics;
-using System.Collections.Concurrent;
 using DynamicMethodsLib;
 using MyClientWebSocket = DanilovSoft.WebSocket.ClientWebSocket;
 using MyWebSocket = DanilovSoft.WebSocket.WebSocket;
 using Microsoft.Extensions.DependencyInjection;
+using System.Threading.Channels;
 
 namespace wRPC
 {
@@ -59,7 +58,8 @@ namespace wRPC
         /// <summary>
         /// Отправка сообщения <see cref="Message"/> должна выполняться только с захватом этой блокировки.
         /// </summary>
-        private readonly AsyncLock _sendMessageLock = new AsyncLock();
+        //private readonly AsyncLock _sendMessageLock = new AsyncLock();
+        private readonly Channel<SendJob> _sendChannel;
         private int _disposed;
         private bool IsDisposed => Volatile.Read(ref _disposed) == 1;
 
@@ -68,7 +68,7 @@ namespace wRPC
         /// Конструктор клиента.
         /// </summary>
         /// <param name="controllersAssembly">Сборка в которой будет осеществляться поиск контроллеров.</param>
-        internal Context(Assembly controllersAssembly)
+        internal Context(Assembly controllersAssembly) : this()
         {
             // Сборка с контроллерами не должна быть текущей сборкой.
             Debug.Assert(controllersAssembly != Assembly.GetExecutingAssembly());
@@ -82,13 +82,26 @@ namespace wRPC
         /// Конструктор сервера.
         /// </summary>
         /// <param name="ioc">Контейнер Listener'а.</param>
-        internal Context(MyWebSocket clientConnection, ServiceProvider serviceProvider)
+        internal Context(MyWebSocket clientConnection, ServiceProvider serviceProvider) : this()
         {
             // У сервера сокет всегда подключен и переподключаться не может.
             Socket = new SocketQueue(clientConnection);
 
             // IoC готов к работе.
             _serviceProvider = serviceProvider;
+        }
+
+        // ctor.
+        private Context()
+        {
+            _sendChannel = Channel.CreateUnbounded<SendJob>(new UnboundedChannelOptions
+            {
+                AllowSynchronousContinuations = true, // Внимательнее с этим параметром!
+                SingleReader = true,
+                SingleWriter = false,
+            });
+
+            ThreadPool.UnsafeQueueUserWorkItem(Sender, state: null);
         }
 
         /// <summary>
@@ -239,8 +252,8 @@ namespace wRPC
                 IsRequest = true,
             };
 
-            // Отправка запроса.
-            await SendMessageAsync(socketQueue, requestMessage);
+            // Планируем отправку запроса.
+            QueueSendMessage(socketQueue, requestMessage);
 
             // Ожидаем результат от потока поторый читает из сокета.
             object rawResult = await tcs;
@@ -390,10 +403,10 @@ namespace wRPC
                                 // Ошибка десериализации запроса.
                                 {
                                     // Подготовить ответ с ошибкой.
-                                    Message errorResponse = ErrorResponse(header.Uid, $"Не удалось десериализовать запрос. Ошибка: \"{ex.Message}\".", ResultCode.InvalidRequestFormat);
+                                    var errorResponse = new Message(header.Uid, result: null, $"Не удалось десериализовать запрос. Ошибка: \"{ex.Message}\".", ResultCode.InvalidRequestFormat);
 
                                     // Начать отправку результата с ошибкой в отдельном потоке.
-                                    StartSendErrorResponse(socketQueue, errorResponse);
+                                    QueueSendMessage(socketQueue, errorResponse);
 
                                     // Вернуться к чтению из сокета.
                                     continue;
@@ -509,23 +522,20 @@ namespace wRPC
             }, state: socketQueue_); // Без замыкания.
         }
 
-        private Message ErrorResponse(short uid, string errorMessage, ResultCode resultCode)
-        {
-            return new Message(uid, result: null, errorMessage, resultCode);
-        }
-
         /// <summary>
-        /// Сериализует сообщение и отправляет в сокет. Вызывать только из фонового потока.
+        /// Сериализует сообщение и планирует отправлку в сокет. Вызывать только из фонового потока.
         /// Не бросает исключения!
         /// </summary>
-        private async Task SendMessageAsync(SocketQueue socketQueue, Message message)
+        private void QueueSendMessage(SocketQueue socketQueue, Message message)
         {
             // На текущем этапе сокет может быть уже уничтожен другим потоком
             // В результате чего в текущем потоке случилась ошибка но отправлять её не нужно.
             if (socketQueue.IsDisposed)
                 return;
 
-            using (var mem = new MemoryPoolStream(256))
+            var mem = new MemoryPoolStream(256);
+
+            try
             {
                 // Оставить место для хедера.
                 mem.Position = Header.Size;
@@ -579,53 +589,79 @@ namespace wRPC
                 // Записать хедер в самое начало.
                 header.Serialize(mem);
 
-                byte[] streamBuffer = mem.DangerousGetBuffer();
-
-                try
+                var job = new SendJob
                 {
-                    // Может бросить ObjectDisposedException.
-                    using (await _sendMessageLock.LockAsync())
-                    {
-                        // Отправляем сообщение по частям.
-                        int offset = 0;
-                        int bytesLeft = contentLength;
-                        do
-                        {
-                            bool endOfMessage = false;
-                            int countToSend = WebSocketMaxFrameSize;
-                            if (countToSend >= bytesLeft)
-                            {
-                                countToSend = bytesLeft;
-                                endOfMessage = true;
-                            }
+                    SocketQueue = socketQueue,
+                    ContentLength = contentLength,
+                    MemoryPoolStream = mem,
+                };
 
-                            var segment = new ArraySegment<byte>(streamBuffer, offset, countToSend);
-
-                            try
-                            {
-                                await socketQueue.WebSocket.SendAsync(segment, WebSocketMessageType.Binary, endOfMessage, CancellationToken.None);
-                            }
-                            catch (Exception ex)
-                            // Обрыв соединения.
-                            {
-                                // Оповестить об обрыве.
-                                AtomicDisconnect(socketQueue, ex);
-
-                                // Завершить поток.
-                                return;
-                            }
-
-                            bytesLeft -= countToSend;
-                            offset += countToSend;
-
-                        } while (bytesLeft > 0);
-                    }
-                }
-                catch (ObjectDisposedException)
+                if (_sendChannel.Writer.TryWrite(job))
                 {
-                    // Может случиться если вызвали Context.Dispose().
+                    // Успешно передали права на ресурс другому потоку.
+                    mem = null;
                 }
             }
+            finally
+            {
+                mem?.Dispose();
+            }
+        }
+
+        private async void Sender(object _)
+        {
+            do
+            {
+                SendJob sendJob;
+                try
+                {
+                    sendJob = await _sendChannel.Reader.ReadAsync();
+                }
+                catch (ChannelClosedException)
+                {
+                    // Завершить поток.
+                    return;
+                }
+
+                using (sendJob.MemoryPoolStream)
+                {
+                    // Отправляем сообщение по частям.
+                    int offset = 0;
+                    int bytesLeft = sendJob.ContentLength;
+                    do
+                    {
+                        bool endOfMessage = false;
+                        int countToSend = WebSocketMaxFrameSize;
+                        if (countToSend >= bytesLeft)
+                        {
+                            countToSend = bytesLeft;
+                            endOfMessage = true;
+                        }
+
+                        byte[] streamBuffer = sendJob.MemoryPoolStream.DangerousGetBuffer();
+
+                        var segment = new ArraySegment<byte>(streamBuffer, offset, countToSend);
+
+                        try
+                        {
+                            await sendJob.SocketQueue.WebSocket.SendAsync(segment, WebSocketMessageType.Binary, endOfMessage, CancellationToken.None);
+                        }
+                        catch (Exception ex)
+                        // Обрыв соединения.
+                        {
+                            // Оповестить об обрыве.
+                            AtomicDisconnect(sendJob.SocketQueue, ex);
+
+                            // Завершить поток.
+                            return;
+                        }
+
+                        bytesLeft -= countToSend;
+                        offset += countToSend;
+
+                    } while (bytesLeft > 0);
+                }
+            } while (true);
         }
 
         /// <summary>
@@ -800,21 +836,21 @@ namespace wRPC
             return args;
         }
 
-        /// <summary>
-        /// Отправляет результат с ошибкой в новом потоке.
-        /// </summary>
-        /// <param name="message_"></param>
-        private void StartSendErrorResponse(SocketQueue socketQueue_, Message message_)
-        {
-            ThreadPool.UnsafeQueueUserWorkItem(async state =>
-            {
-                var tuple = ((SocketQueue socketQueue, Message errorMessage))state;
+        ///// <summary>
+        ///// Отправляет результат с ошибкой в новом потоке.
+        ///// </summary>
+        ///// <param name="message_"></param>
+        //private void QueueSendErrorResponse(SocketQueue socketQueue_, Message message_)
+        //{
+        //    ThreadPool.UnsafeQueueUserWorkItem(state =>
+        //    {
+        //        var tuple = ((SocketQueue socketQueue, Message errorMessage))state;
 
-                // Сериализовать и отправить результат.
-                await SendMessageAsync(tuple.socketQueue, tuple.errorMessage);
+        //        // Сериализовать и отправить результат.
+        //        QueueSendMessage(tuple.socketQueue, tuple.errorMessage);
 
-            }, state: (socketQueue_, message_)); // Без замыкания.
-        }
+        //    }, state: (socketQueue_, message_)); // Без замыкания.
+        //}
 
         /// <summary>
         /// В новом потоке выполняет запрос клиента и отправляет ему результат или ошибку.
@@ -830,7 +866,7 @@ namespace wRPC
                 response.Request = tuple.request;
 
                 // Сериализовать и отправить результат.
-                await SendMessageAsync(tuple.socketQueue, response);
+                QueueSendMessage(tuple.socketQueue, response);
 
             }, state: (socketQueue_, request_)); // Без замыкания.
         }
@@ -887,15 +923,17 @@ namespace wRPC
         {
             if (Interlocked.CompareExchange(ref _disposed, 1, 0) == 0)
             {
+                var disposedException = new ObjectDisposedException(GetType().FullName);
+
                 SocketQueue socket = Socket;
                 if (socket != null)
                 {
                     // Оповестить об обрыве.
-                    AtomicDisconnect(socket, new ObjectDisposedException(GetType().FullName));
+                    AtomicDisconnect(socket, disposedException);
                 }
 
                 _serviceProvider?.Dispose();
-                _sendMessageLock.Dispose();
+                _sendChannel.Writer.TryComplete(error: disposedException);
             }
         }
     }

@@ -1,6 +1,5 @@
 ﻿// Version 1.0.5
 
-using System;
 using System.Buffers;
 using System.Threading;
 

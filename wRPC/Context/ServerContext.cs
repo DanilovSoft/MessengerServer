@@ -1,10 +1,8 @@
 ﻿using Microsoft.Extensions.DependencyInjection;
 using System;
-using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Reflection;
-using System.Text;
 using System.Threading.Tasks;
 using MyClientWebSocket = DanilovSoft.WebSocket.ClientWebSocket;
 using MyWebSocket = DanilovSoft.WebSocket.WebSocket;
