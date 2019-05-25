@@ -1,10 +1,7 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Text;
-using System.Threading;
 using System.Threading.Tasks;
 
-namespace wRPC
+namespace System.Threading
 {
     internal sealed class AsyncLock : IDisposable
     {
