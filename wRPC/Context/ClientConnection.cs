@@ -88,7 +88,7 @@ namespace wRPC
         /// <summary>
         /// Событие — обрыв сокета.
         /// </summary>
-        private protected override void OnDisconnect(SocketQueue socketQueue)
+        private protected override void OnAtomicDisconnect(SocketQueue socketQueue)
         {
             // Установить Socket = null если в ссылке хранится экземпляр соединения в котором произошел обрыв.
             Interlocked.CompareExchange(ref _socket, null, socketQueue);
@@ -181,18 +181,11 @@ namespace wRPC
         /// </summary>
         private async Task<bool> AuthorizeAsync(SocketQueue socketQueue, byte[] bearerToken)
         {
-            var message = new RequestMessage()
-            {
-                Header = new Header(),
-                ActionName = "Auth/AuthorizeToken",
-                Args = new Arg[]
-                {
-                    new Arg("token", bearerToken)
-                },
-            };
-
+            // Запрос на авторизацию по токену.
+            var requestToSend = Message.CreateRequest("Auth/AuthorizeToken", new Arg[] { new Arg("token", bearerToken) });
+            
             // Отправить запрос и получить ответ.
-            object result = await ExecuteRequestAsync(message, returnType: typeof(bool), socketQueue).ConfigureAwait(false);
+            object result = await ExecuteRequestAsync(requestToSend, returnType: typeof(bool), socketQueue).ConfigureAwait(false);
 
             return (bool)result;
         }

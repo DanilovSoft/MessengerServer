@@ -18,7 +18,7 @@ namespace wRPC
 
         public SocketQueue(WebSocket webSocket)
         {
-            WebSocket = webSocket;
+            WebSocket = webSocket ?? throw new ArgumentNullException(nameof(webSocket));
             RequestCollection = new RequestQueue();
         }
 

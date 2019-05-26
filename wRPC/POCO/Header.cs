@@ -1,38 +1,79 @@
-﻿using System.IO;
+﻿using ProtoBuf;
+using System;
+using System.IO;
 using System.Text;
+using ProtoBufSerializer = ProtoBuf.Serializer;
 
 namespace wRPC
 {
+    /// <summary>
+    /// Заголовок передаваемого сообщения. Формат заголовка всегда предопределён.
+    /// </summary>
+    [ProtoContract]
     internal sealed class Header
     {
-        /// <summary>
-        /// Фиксированный размер структуры.
-        /// </summary>
-        public const int Size = 7;
-        public bool IsRequest;
-        public short Uid;
-        public int ContentLength;
+        private const PrefixStyle HeaderLengthPrefix = PrefixStyle.Fixed32;
 
-        public void Serialize(Stream stream)
+        [ProtoMember(1)]
+        public short Uid { get; }
+
+        [ProtoMember(2)]
+        public StatusCode StatusCode { get; }
+
+        [ProtoMember(3, IsRequired = false)]
+        public int ContentLength { get; set; }
+
+        [ProtoMember(4, IsRequired = false)]
+        public string ContentEncoding { get; set; }
+
+        // Для сериализатора.
+        private Header()
         {
-            using (var writer = new BinaryWriter(stream, Encoding.Default, leaveOpen: true))
-            {
-                writer.Write(IsRequest);
-                writer.Write(Uid);
-                writer.Write(ContentLength);
-            }
+
         }
 
-        public static Header Deserialize(Stream stream)
+        public Header(short uid, StatusCode statusCode)
         {
-            var header = new Header();
-            using (var reader = new BinaryReader(stream, Encoding.Default, leaveOpen: true))
+            Uid = uid;
+            StatusCode = statusCode;
+        }
+
+        public static bool TryReadLengthPrefix(Stream source, out int length)
+        {
+            long pos = source.Position;
+
+            // Заголовок сообщения находится в самом начале.
+            source.Position = 0;
+
+            bool success = ProtoBufSerializer.TryReadLengthPrefix(source, HeaderLengthPrefix, out length);
+
+            source.Position = pos;
+
+            return success;
+        }
+
+        public void SerializeWithLengthPrefix(Stream destination)
+        {
+            ProtoBufSerializer.SerializeWithLengthPrefix(destination, this, HeaderLengthPrefix);
+        }
+
+        public static Header DeserializeWithLengthPrefix(Stream source)
+        {
+            return ProtoBufSerializer.DeserializeWithLengthPrefix<Header>(source, HeaderLengthPrefix);
+        }
+
+        /// <summary>
+        /// Возвращает подходящий десериализатор соответственно <see cref="ContentEncoding"/>.
+        /// </summary>
+        public Func<Stream, Type, object> GetDeserializer()
+        {
+            switch (ContentEncoding)
             {
-                header.IsRequest = reader.ReadBoolean();
-                header.Uid = reader.ReadInt16();
-                header.ContentLength = reader.ReadInt32();
+                case ProducesProtoBufAttribute.Encoding:
+                        return ExtensionMethods.DeserializeProtobuf;
+                default:
+                    return ExtensionMethods.DeserializeJson;
             }
-            return header;
         }
     }
 }

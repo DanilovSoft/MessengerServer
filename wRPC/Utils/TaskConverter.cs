@@ -26,9 +26,19 @@ namespace wRPC
             return genericConverter(task);
         }
 
+        // Возвращает Task<T>
         private static object InnerConvertTask<T>(Task<object> task)
         {
-            return task.ContinueWith(Convert<T>);
+            return ConvertAsync<T>(task);
+            //Task<T> taskT = task.ContinueWith(Convert<T>);
+            //return taskT;
+        }
+
+        [DebuggerStepThrough]
+        private static async Task<T> ConvertAsync<T>(Task<object> task)
+        {
+            object result = await task.ConfigureAwait(false);
+            return (T)result;
         }
 
         [DebuggerStepThrough]

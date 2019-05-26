@@ -31,7 +31,7 @@ namespace wRPC
         /// Потокобезопасно добавляет запрос в словарь запросов и возвращает уникальный идентификатор.
         /// </summary>
         /// <exception cref="Exception">Происходит если уже происходил обрыв соединения.</exception>
-        public TaskCompletionSource AddRequest(RequestMessage request, Type resultType, out short uid)
+        public TaskCompletionSource AddRequest(Type resultType, string requestAction, out short uid)
         {
             lock (_dict)
             {
@@ -43,7 +43,7 @@ namespace wRPC
                     uid = (short)_rnd.Next();
                 } while (_dict.ContainsKey(uid)); // Предотвратить дубли уникальных ключей.
 
-                var tcs = new TaskCompletionSource(request, resultType);
+                var tcs = new TaskCompletionSource(resultType, requestAction);
                 _dict.Add(uid, tcs);
                 return tcs;
             }
@@ -73,7 +73,7 @@ namespace wRPC
             // Потокобезопасно удалить запрос из словаря.
             if (TryRemove(uid, out TaskCompletionSource tcs))
             {
-                tcs.OnError(exception);
+                tcs.TrySetOnError(exception);
             }
         }
 
@@ -109,7 +109,7 @@ namespace wRPC
                     {
                         foreach (TaskCompletionSource tcs in _dict.Values)
                         {
-                            tcs.OnError(exception);
+                            tcs.TrySetOnError(exception);
                         }
                         _dict.Clear();
                     }

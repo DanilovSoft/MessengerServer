@@ -5,10 +5,15 @@ using System.Text;
 
 namespace wRPC
 {
-    internal sealed class SendJob
+    internal readonly struct SendJob
     {
-        public int ContentLength;
-        public SocketQueue SocketQueue;
-        public MemoryPoolStream MemoryPoolStream;
+        public SocketQueue SocketQueue { get; }
+        public MemoryPoolStream MemoryPoolStream { get; }
+
+        public SendJob(SocketQueue socketQueue, MemoryPoolStream memoryPoolStream)
+        {
+            SocketQueue = socketQueue;
+            MemoryPoolStream = memoryPoolStream;
+        }
     }
 }

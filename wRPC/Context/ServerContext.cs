@@ -45,12 +45,9 @@ namespace wRPC
         private readonly RijndaelEnhanced _jwt;
 
         // ctor.
-        internal ServerContext(MyWebSocket clientConnection, ServiceProvider serviceProvider, Listener listener) : base(clientConnection, serviceProvider)
+        internal ServerContext(MyWebSocket clientConnection, ServiceProvider serviceProvider, Listener listener) : base(clientConnection, serviceProvider, listener.Controllers)
         {
             Listener = listener;
-
-            // Копируем список контроллеров сервера.
-            Controllers = listener.Controllers;
 
             _jwt = new RijndaelEnhanced(PassPhrase, InitVector);
 
@@ -169,7 +166,7 @@ namespace wRPC
                     //Socket.Disconnected += WebSocket_Disconnected;
                 }
                 else
-                    throw new RemoteException($"You are already authorized as 'UserId: {UserId}'", ResultCode.BadRequest);
+                    throw new RemoteException($"You are already authorized as 'UserId: {UserId}'", StatusCode.BadRequest);
             }
         }
 
@@ -196,7 +193,7 @@ namespace wRPC
             } while (true);
         }
 
-        private protected override void OnDisconnect(SocketQueue socketQueue)
+        private protected override void OnAtomicDisconnect(SocketQueue socketQueue)
         {
             // Копируем volatile ссылку.
             UserConnections userConnections = UserConnections;
@@ -248,7 +245,7 @@ namespace wRPC
             if (Attribute.IsDefined(controllerType, typeof(AllowAnonymousAttribute)))
                 return;
 
-            throw new RemoteException("The request requires user authentication", ResultCode.Unauthorized);
+            throw new RemoteException("The request requires user authentication", StatusCode.Unauthorized);
         }
 
         private protected override Task<SocketQueue> GetOrCreateConnectionAsync()

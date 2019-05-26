@@ -1,21 +1,25 @@
 ﻿using Newtonsoft.Json;
+using ProtoBuf;
 using System;
 
 namespace wRPC
 {
     [JsonObject]
+    [ProtoContract]
     public sealed class BearerToken
     {
         /// <summary>
         /// Зашифрованное тело токена.
         /// </summary>
         [JsonProperty]
-        public byte[] Key;
+        [ProtoMember(1, IsRequired = true)]
+        public byte[] Key { get; set; }
 
         /// <summary>
         /// Время актуальности токена.
         /// </summary>
         [JsonProperty]
-        public TimeSpan ExpiresAt;
+        [ProtoMember(2, IsRequired = true)]
+        public TimeSpan ExpiresAt { get; set; }
     }
 }

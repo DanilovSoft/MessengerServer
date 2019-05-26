@@ -6,13 +6,6 @@ namespace wRPC
 {
     internal static class GlobalVars
     {
-        //public static MessagePackSerializer<Message> MessageSerializer { get; }
-
-        static GlobalVars()
-        {
-            //MessageSerializer = MessagePackSerializer.Get<Message>();
-        }
-
         public static readonly Action DummyAction = delegate { };
 
         public static Dictionary<string, Type> FindAllControllers(Assembly assembly)
@@ -24,7 +17,8 @@ namespace wRPC
             {
                 if (controllerType.IsSubclassOf(typeof(Controller)))
                 {
-                    controllers.Add(controllerType.Name, controllerType);
+                    // Имя без учета окончания 'Controller'.
+                    controllers.Add(controllerType.Name.Substring(0, controllerType.Name.IndexOf("Controller")), controllerType);
                 }
             }
             return controllers;

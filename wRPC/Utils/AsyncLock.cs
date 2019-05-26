@@ -1,4 +1,7 @@
-﻿using System;
+﻿// Vitalii Danilov
+// Version 1.1.0
+
+using System;
 using System.Threading.Tasks;
 
 namespace System.Threading
@@ -7,7 +10,7 @@ namespace System.Threading
     {
         private readonly SemaphoreSlim _sem;
         private readonly Releaser _releaser;
-        private bool _disposed;
+        private volatile bool _disposed;
 
         public AsyncLock()
         {
@@ -16,19 +19,14 @@ namespace System.Threading
         }
 
         /// <exception cref="ObjectDisposedException"/>
-        public Task<Releaser> LockAsync()
+        public async Task<Releaser> LockAsync()
         {
-            return _sem.WaitAsync().ContinueWith(OnEnterSemaphore, TaskContinuationOptions.OnlyOnRanToCompletion);
-        }
+            await _sem.WaitAsync().ConfigureAwait(false);
 
-        /// <summary>
-        /// Происходит при успешном захвате семафора.
-        /// </summary>
-        private Releaser OnEnterSemaphore(Task task)
-        {
             // Семафор мог быть освобожден после вызова Dispose.
-            if (_disposed)
-                throw new ObjectDisposedException(GetType().FullName);
+            // Продолжать в этом случае ни в коем случае нельзя.
+            if (_disposed) // Должно быть volatile.
+                throw new ObjectDisposedException(typeof(AsyncLock).FullName);
 
             return _releaser;
         }
@@ -46,6 +44,7 @@ namespace System.Threading
             /// </summary>
             public void Dispose()
             {
+                // Освобождать семафор нужно через блокировку так как может сработать Dispose.
                 lock (_self._sem)
                 {
                     if (!_self._disposed)

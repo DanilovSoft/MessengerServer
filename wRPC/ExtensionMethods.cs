@@ -7,49 +7,46 @@ namespace wRPC
 {
     internal static class ExtensionMethods
     {
-        private static volatile Encoding _UTF8NoBOM;
+        private static readonly Encoding _UTF8NoBOM;
+
+        // ctor.
         static ExtensionMethods()
         {
             _UTF8NoBOM = new UTF8Encoding(false, true);
         }
 
-        public static Message ErrorResponse(this RequestMessage request, RemoteException remoteException)
-        {
-            return new Message(request.Header.Uid, result: null, remoteException.Message, remoteException.ErrorCode);
-        }
-
-        public static Message ErrorResponse(this RequestMessage request, string errorMessage, ResultCode errorCode)
-        {
-            return new Message(request.Header.Uid, result: null, errorMessage, errorCode);
-        }
-
         /// <summary>
         /// Сериализует объект в JSON.
         /// </summary>
-        public static void SerializeObject(object value, Stream stream)
+        public static void SerializeObjectJson(Stream destination, object instance)
         {
-            using (var writer = new StreamWriter(stream, _UTF8NoBOM, bufferSize: 1024, leaveOpen: true))
-            using (var bson = new JsonTextWriter(writer))
+            using (var writer = new StreamWriter(destination, _UTF8NoBOM, bufferSize: 1024, leaveOpen: true))
+            using (var json = new JsonTextWriter(writer))
             {
                 var ser = new JsonSerializer();
-                ser.Serialize(bson, value);
+                ser.Serialize(json, instance);
             }
         }
 
-        //public static void SerializeObject(object value, Stream stream)
-        //{
-        //    using (var binaryWriter = new BinaryWriter(stream, new UTF8Encoding(false, true), leaveOpen: true))
-        //    using (var bson = new BsonDataWriter(binaryWriter))
-        //    {
-        //        var ser = new JsonSerializer();
-        //        ser.Serialize(bson, value);
-        //    }
-        //}
+        public static bool TryReadLengthPrefix(Stream source, out int length)
+        {
+            return ProtoBuf.Serializer.TryReadLengthPrefix(source, ProtoBuf.PrefixStyle.Base128, out length);
+        }
+
+        internal static object DeserializeProtobuf(Stream source, Type type)
+        {
+            return ProtoBuf.Serializer.Deserialize(type, source);
+        }
+
+        internal static void SerializeObjectProtobuf(Stream destination, object instance)
+        {
+            ProtoBuf.Serializer.Serialize(destination, instance);
+        }
 
         /// <summary>
         /// Десериализует JSON.
         /// </summary>
-        public static T Deserialize<T>(Stream stream)
+        public static T DeserializeJson<T>(Stream stream)
         {
             using (var reader = new StreamReader(stream, _UTF8NoBOM, detectEncodingFromByteOrderMarks: true, bufferSize: 1024, leaveOpen: true))
             using (var json = new JsonTextReader(reader))
@@ -62,7 +59,7 @@ namespace wRPC
         /// <summary>
         /// Десериализует JSON.
         /// </summary>
-        public static object Deserialize(Stream stream, Type objectType)
+        public static object DeserializeJson(Stream stream, Type objectType)
         {
             using (var reader = new StreamReader(stream, _UTF8NoBOM, detectEncodingFromByteOrderMarks: true, bufferSize: 1024, leaveOpen: true))
             using (var json = new JsonTextReader(reader))
@@ -72,30 +69,26 @@ namespace wRPC
             }
         }
 
-        ///// <summary>
-        ///// Десериализует BSON.
-        ///// </summary>
-        //public static T Deserialize<T>(Stream stream)
-        //{
-        //    using (var binaryWriter = new BinaryReader(stream, new UTF8Encoding(), leaveOpen: true))
-        //    using (var bson = new BsonDataReader(binaryWriter))
-        //    {
-        //        var ser = new JsonSerializer();
-        //        return ser.Deserialize<T>(bson);
-        //    }
-        //}
+        /// <summary>
+        /// Читает строку в формате Utf-8.
+        /// </summary>
+        public static string ReadAsString(this Stream stream)
+        {
+            using (var reader = new BinaryReader(stream, Encoding.UTF8, true))
+            {
+                // Десериализовать тело как строку.
+                string errorMessage = reader.ReadString();
+                return errorMessage;
+            }
+        }
 
-        ///// <summary>
-        ///// Десериализует BSON.
-        ///// </summary>
-        //public static object Deserialize(Stream stream, Type objectType)
-        //{
-        //    using (var binaryWriter = new BinaryReader(stream, new UTF8Encoding(), leaveOpen: true))
-        //    using (var bson = new BsonDataReader(binaryWriter))
-        //    {
-        //        var ser = new JsonSerializer();
-        //        return ser.Deserialize(bson, objectType);
-        //    }
-        //}
+        /// <summary>
+        /// Записывает строку в формате Utf-8.
+        /// </summary>
+        public static void WriteString(this Stream destination, string message)
+        {
+            using (var writer = new BinaryWriter(destination, Encoding.UTF8, leaveOpen: true))
+                writer.Write(message);
+        }
     }
 }

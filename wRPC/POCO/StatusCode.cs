@@ -1,8 +1,12 @@
 ﻿namespace wRPC
 {
-    public enum ResultCode : byte
+    /// <summary>
+    /// Код состояния передаваемого сообщения.
+    /// </summary>
+    public enum StatusCode : byte
     {
         Ok = 20,
+        Request = 21,
         BadRequest = 40,
         Unauthorized = 41,
         ActionNotFound = 44,

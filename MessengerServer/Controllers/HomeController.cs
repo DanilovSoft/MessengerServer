@@ -96,8 +96,6 @@ namespace MessengerServer.Controllers
         {
             _logger.LogInformation($"Получено сообщение: \"{message}\"");
 
-            return null;
-
             // Пользователи входящие в группу.
             int[] users = await _dataProvider
                 .Get<GroupDb>()

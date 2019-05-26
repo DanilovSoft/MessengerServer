@@ -56,7 +56,7 @@ namespace StubClient
                 //var user = groups[3];
                 while (true)
                 {
-                    //byte[] img = await utilsController.ShrinkImage(token.ImageUrl, 320);
+                    byte[] img = await utilsController.ShrinkImage(authorizationResult.ImageUrl, 320);
                     //File.WriteAllBytes("D:\\test.jpg", img);
 
                     Console.Write("Введите сообдение: ");

@@ -12,8 +12,8 @@ namespace wRPC
     internal sealed class TaskCompletionSource : INotifyCompletion
     {
         [DebuggerBrowsable(DebuggerBrowsableState.Never)]
-        private string DebugDisplay => "{" + $"{_requestMessage.ActionName}" + "}";
-        private readonly RequestMessage _requestMessage;
+        private string DebugDisplay => "{" + $"Request: {_requestAction}" + "}";
+        private readonly string _requestAction;
         /// <summary>
         /// Тип ожидаемого результата.
         /// </summary>
@@ -28,9 +28,9 @@ namespace wRPC
         private Action _continuationAtomic;
 
         // ctor.
-        public TaskCompletionSource(RequestMessage request, Type resultType)
+        public TaskCompletionSource(Type resultType, string requestAction = null)
         {
-            _requestMessage = request;
+            _requestAction = requestAction;
             ResultType = resultType;
         }
 
@@ -50,7 +50,7 @@ namespace wRPC
         /// <summary>
         /// Передает ожидающему потоку исключение как результат запроса.
         /// </summary>
-        public void OnError(Exception exception)
+        public void TrySetOnError(Exception exception)
         {
             _exception = exception;
             OnResultAtomic();
@@ -59,7 +59,7 @@ namespace wRPC
         /// <summary>
         /// Передает результат ожидающему потоку.
         /// </summary>
-        public void OnResponse(object rawResult)
+        public void TrySetResponse(object rawResult)
         {
             _response = rawResult;
             OnResultAtomic();

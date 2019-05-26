@@ -22,6 +22,7 @@ namespace MessengerServer.Controllers
             _logger = logger;
         }
 
+        [ProducesProtoBuf]
         public async Task<byte[]> ShrinkImage(Uri ImageUri, int pixelSize)
         {
             _logger.LogInformation($"Сжатие изображения до {pixelSize}px");

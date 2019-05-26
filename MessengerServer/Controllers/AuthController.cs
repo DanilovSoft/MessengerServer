@@ -24,6 +24,7 @@ namespace MessengerServer.Controllers
         }
 
         [AllowAnonymous]
+        [ProducesProtoBuf]
         public async Task<AuthorizationResult> Authorize(string login, string password)
         {
             var user = await _dataProvider.Get<UserDb>()
