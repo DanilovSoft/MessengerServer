@@ -42,19 +42,21 @@ namespace EfProvider
 
         public Task<T> InsertAsync<T>(T entity) where T : class, IEntity
         {
-            return ExecuteCommand(state =>
+            return ExecuteCommand(async state =>
             {
                 Add(state);
-                return _dbContext.SaveChangesAsync().ContinueWith(_ => state, TaskContinuationOptions.OnlyOnRanToCompletion);
+                await _dbContext.SaveChangesAsync().ConfigureAwait(false);
+                return state;
             }, state: entity);
         }
 
         public Task<T> UpdateAsync<T>(T entity, bool ignoreSystemProps = true) where T : class, IEntity
         {
-            return ExecuteCommand(state =>
+            return ExecuteCommand(async state =>
             {
                 UpdateEntity(state.entity, state.ignoreSystemProps);
-                return _dbContext.SaveChangesAsync().ContinueWith(_ => state.entity, TaskContinuationOptions.OnlyOnRanToCompletion);
+                await _dbContext.SaveChangesAsync().ConfigureAwait(false);
+                return state.entity;
             }, state: (entity, ignoreSystemProps));
         }
 
@@ -174,9 +176,10 @@ namespace EfProvider
         public Task SafeExecuteAsync([InstantHandle] Func<IDataProvider, Task> action,
             IsolationLevel level = IsolationLevel.RepeatableRead, int retryCount = 3)
         {
-            Task<object> EmptyResultWrapper(IDataProvider db)
+            async Task<object> EmptyResultWrapper(IDataProvider db)
             {
-                return action(db).ContinueWith<object>(_ => null, TaskContinuationOptions.OnlyOnRanToCompletion);
+                await action(db).ConfigureAwait(false);
+                return null;
             }
 
             return InnerSafeExecuteAsync(EmptyResultWrapper, level, retryCount);

@@ -10,6 +10,7 @@ namespace wRPC
         private static readonly MethodInfo _InnerConvertTaskMethod;
         private static readonly SyncDictionary<Type, Func<Task<object>, object>> _dict = new SyncDictionary<Type, Func<Task<object>, object>>();
 
+        // ctor.
         static TaskConverter()
         {
             _InnerConvertTaskMethod = typeof(TaskConverter).GetMethod(nameof(InnerConvertTask), BindingFlags.NonPublic | BindingFlags.Static);
@@ -30,8 +31,6 @@ namespace wRPC
         private static object InnerConvertTask<T>(Task<object> task)
         {
             return ConvertAsync<T>(task);
-            //Task<T> taskT = task.ContinueWith(Convert<T>);
-            //return taskT;
         }
 
         [DebuggerStepThrough]
