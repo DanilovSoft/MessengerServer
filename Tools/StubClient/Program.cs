@@ -16,8 +16,19 @@ namespace StubClient
 
         static async Task Main()
         {
-            //var channel = Channel.CreateBounded<int>(new BoundedChannelOptions(1) { });
-            //channel.Reader.ReadAsync
+            var mem = new MemoryPoolStream();
+            for (int i = 0; i < 10; i++)
+            {
+                mem.WriteByte(1);
+            }
+            mem.Position = 0;
+            mem.Read(new byte[3], 0, 3);
+            mem.Seek(0, SeekOrigin.End);
+            mem.Capacity = 20;
+
+            var ar = new byte[10];
+            Array.Fill<byte>(ar, 1);
+            mem.Write(ar, 0, 10);
 
             Console.Title = "Клиент";
 
@@ -56,7 +67,7 @@ namespace StubClient
                 //var user = groups[3];
                 while (true)
                 {
-                    byte[] img = await utilsController.ShrinkImage(authorizationResult.ImageUrl, 320);
+                    byte[] img = await utilsController.ShrinkImage(new Uri("https://s3.amazonaws.com/uifaces/faces/twitter/batsirai/128.jpg"), 183);
                     //File.WriteAllBytes("D:\\test.jpg", img);
 
                     Console.Write("Введите сообдение: ");

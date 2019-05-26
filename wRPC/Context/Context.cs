@@ -383,11 +383,13 @@ namespace wRPC
                                     // Если есть еще фреймы веб-сокета.
                                     if (!webSocketMessage.EndOfMessage)
                                     {
+                                        //mem.Position = mem.Length;
+
                                         // Возвращаем позицию стрима в конец для следующей записи.
                                         mem.Seek(0, SeekOrigin.End);
 
                                         // Увеличим стрим до размера всего сообщения.
-                                        mem.Capacity = header.ContentLength;
+                                        mem.Capacity = (header.ContentLength + headerLength);
                                     }
 
                                     #endregion

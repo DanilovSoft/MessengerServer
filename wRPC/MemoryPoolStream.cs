@@ -109,6 +109,7 @@ namespace System.IO
             if (newPosition >= 0)
             {
                 _position = newPosition;
+                //_bufferPosition = newPosition;
 
                 // Нужно вернуть итоговую позицию.
                 return newPosition;
@@ -256,7 +257,7 @@ namespace System.IO
                 ReDim(requiredSize);
 
                 // Если позиция больше чем старый буфер то нужно заполнить нулями разницу.
-                int clearLen = _position - _bufferPosition;
+                int clearLen = _position - _length;
                 if (clearLen > 0)
                 {
                     // Заполнить нулями до позиции стрима.
