@@ -73,7 +73,7 @@ namespace wRPC
             // Потокобезопасно удалить запрос из словаря.
             if (TryRemove(uid, out TaskCompletionSource tcs))
             {
-                tcs.TrySetOnError(exception);
+                tcs.TrySetException(exception);
             }
         }
 
@@ -109,7 +109,7 @@ namespace wRPC
                     {
                         foreach (TaskCompletionSource tcs in _dict.Values)
                         {
-                            tcs.TrySetOnError(exception);
+                            tcs.TrySetException(exception);
                         }
                         _dict.Clear();
                     }

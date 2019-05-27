@@ -1,4 +1,5 @@
-﻿// Version 1.0.5
+﻿// Vitalii Danilov
+// Version 1.1.0
 
 using System.Buffers;
 using System.Threading;
@@ -109,7 +110,6 @@ namespace System.IO
             if (newPosition >= 0)
             {
                 _position = newPosition;
-                //_bufferPosition = newPosition;
 
                 // Нужно вернуть итоговую позицию.
                 return newPosition;
@@ -228,12 +228,12 @@ namespace System.IO
                         {
                             // Обнулить правую часть буфера до позиции стрима.
                             Array.Clear(_arrayBuffer, _bufferPosition, length: lengthOverhead);
+                        }
 
-                            if (_length < requiredSize)
-                            {
-                                // Размер стрима теперь увеличен до необходимого.
-                                _length = requiredSize;
-                            }
+                        if (_length < requiredSize)
+                        {
+                            // Размер стрима теперь увеличен до необходимого.
+                            _length = requiredSize;
                         }
                     }
                     else

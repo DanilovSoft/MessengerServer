@@ -50,7 +50,7 @@ namespace wRPC
         /// <summary>
         /// Передает ожидающему потоку исключение как результат запроса.
         /// </summary>
-        public void TrySetOnError(Exception exception)
+        public void TrySetException(Exception exception)
         {
             _exception = exception;
             OnResultAtomic();
@@ -59,7 +59,7 @@ namespace wRPC
         /// <summary>
         /// Передает результат ожидающему потоку.
         /// </summary>
-        public void TrySetResponse(object rawResult)
+        public void TrySetResult(object rawResult)
         {
             _response = rawResult;
             OnResultAtomic();

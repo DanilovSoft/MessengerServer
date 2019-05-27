@@ -458,18 +458,18 @@ namespace wRPC
                                                     $"результата запроса типа \"{tcs.ResultType.FullName}\"", deserializationException);
 
                                                 // Сообщить ожидающему потоку что произошла ошибка при разборе ответа удаленной стороны.
-                                                tcs.TrySetOnError(protocolErrorException);
+                                                tcs.TrySetException(protocolErrorException);
 
                                                 // Вернуться к чтению из сокета.
                                                 continue;
                                             }
                                             // Передать результат ожидающему потоку.
-                                            tcs.TrySetResponse(rawResult);
+                                            tcs.TrySetResult(rawResult);
                                         }
                                         else
                                         // void.
                                         {
-                                            tcs.TrySetResponse(null);
+                                            tcs.TrySetResult(null);
                                         }
                                     }
                                     else
@@ -479,7 +479,7 @@ namespace wRPC
                                         string errorMessage = mem.ReadAsString();
                                         
                                         // Сообщить ожидающему потоку что удаленная сторона вернула ошибку в результате выполнения запроса.
-                                        tcs.TrySetOnError(new RemoteException(errorMessage, header.StatusCode));
+                                        tcs.TrySetException(new RemoteException(errorMessage, header.StatusCode));
                                     }
                                 }
                             }
