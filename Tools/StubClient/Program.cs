@@ -53,7 +53,7 @@ namespace StubClient
                 //var user = groups[3];
                 while (true)
                 {
-                    byte[] img = await utilsController.ShrinkImage(new Uri("https://s3.amazonaws.com/uifaces/faces/twitter/batsirai/128.jpg"), 183);
+                    //byte[] img = await utilsController.ShrinkImage(new Uri("https://s3.amazonaws.com/uifaces/faces/twitter/batsirai/128.jpg"), 183);
                     //File.WriteAllBytes("D:\\test.jpg", img);
 
                     Console.Write("Введите сообдение: ");

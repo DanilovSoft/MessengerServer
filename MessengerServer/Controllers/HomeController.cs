@@ -92,8 +92,12 @@ namespace MessengerServer.Controllers
             return messages.Select(x => FromMessageDb(x)).ToArray();
         }
 
+        [ProducesProtoBuf]
         public async Task<SendMessageResult> SendMessage(string message, long groupId)
         {
+            if (string.IsNullOrWhiteSpace(message))
+                return null;
+
             _logger.LogInformation($"Получено сообщение: \"{message}\"");
 
             // Пользователи входящие в группу.
@@ -141,7 +145,6 @@ namespace MessengerServer.Controllers
                     }
                 }
             }
-
             return result;
         }
 

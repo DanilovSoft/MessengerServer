@@ -160,10 +160,6 @@ namespace wRPC
 
                     // Добавляем соединение в словарь.
                     UserConnections = AddConnection(userId);
-
-                    // Подпишемся на дисконнект.
-                    // Событие сработает даже если соединение уже разорвано.
-                    //Socket.Disconnected += WebSocket_Disconnected;
                 }
                 else
                     throw new RemoteException($"You are already authorized as 'UserId: {UserId}'", StatusCode.BadRequest);
