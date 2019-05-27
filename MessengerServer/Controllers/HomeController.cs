@@ -1,5 +1,4 @@
 ﻿using Contract;
-using Contract.Dto;
 using DbModel;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
@@ -9,6 +8,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using DBCore;
+using Dto;
 using wRPC;
 
 namespace MessengerServer.Controllers
@@ -31,8 +31,6 @@ namespace MessengerServer.Controllers
                 .Get<UserGroupDb>()
                 .Where(x => x.UserId == UserId) // Только чаты пользователя.
                 .Select(x => x.Group)
-                .Include(x => x.Messages)
-                .Include(x => x.Users)
                 .Select(x => new
                 {
                     Group = x,
