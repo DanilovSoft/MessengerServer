@@ -1,7 +1,7 @@
 ﻿using ProtoBuf;
 using System;
 
-namespace Contract.Dto
+namespace Dto
 {
     [ProtoContract]
     public class SendMessageResult

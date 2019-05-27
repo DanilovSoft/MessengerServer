@@ -1,13 +1,10 @@
-﻿using DbModel.Store;
-using EfProvider;
-using Microsoft.EntityFrameworkCore;
-using System;
+﻿using System;
 using System.Threading;
 using wRPC;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Configuration;
 using System.IO;
-using DBCore;
+using MessengerServer.Extensions;
 using Microsoft.Extensions.Logging;
 
 namespace MessengerServer
@@ -23,23 +20,13 @@ namespace MessengerServer
             {
                 if (createdNew)
                 {
-                    var configurationBuilder = new ConfigurationBuilder()
-                        .SetBasePath(Directory.GetCurrentDirectory())
-                        .AddJsonFile("appsettings.json", optional: true, reloadOnChange: true)
-                        .AddJsonFile("appsettings.local.json", optional: true);
+                    IConfiguration configuration = BuildConfiguration();
 
-                    IConfigurationRoot configuration = configurationBuilder.Build();
-                    
                     using (var listener = new Listener(Port))
                     {
-                        var modelStore = new ModelStore();
-                        var builder = new DbContextOptionsBuilder<CustomEfDbContext>();
-                        builder.UseNpgsql(configuration.GetConnectionString("Default"));
-                        
-                        listener.IoC.AddScoped(x => new CustomEfDbContext(modelStore, builder.Options));
-                        listener.IoC.AddScoped<IDataProvider, EfDataProvider>();
+                        listener.IoC.AddDb(configuration);
 
-                        listener.IoC.AddLogging(loggingBuilder => 
+                        listener.IoC.AddLogging(loggingBuilder =>
                         {
                             loggingBuilder
                                 .AddConsole()
@@ -54,6 +41,16 @@ namespace MessengerServer
                     }
                 }
             }
+        }
+
+        private static IConfiguration BuildConfiguration()
+        {
+            var configurationBuilder = new ConfigurationBuilder()
+                .SetBasePath(Directory.GetCurrentDirectory())
+                .AddJsonFile("appsettings.json", optional: true, reloadOnChange: true)
+                .AddJsonFile("appsettings.local.json", optional: true);
+
+            return configurationBuilder.Build();
         }
     }
 }

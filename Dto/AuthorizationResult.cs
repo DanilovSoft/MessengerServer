@@ -1,8 +1,8 @@
-﻿using ProtoBuf;
-using System;
+﻿using System;
+using ProtoBuf;
 using wRPC;
 
-namespace Contract.Dto
+namespace Dto
 {
     [ProtoContract]
     public sealed class AuthorizationResult

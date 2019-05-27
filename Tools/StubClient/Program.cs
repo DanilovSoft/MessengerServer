@@ -3,10 +3,10 @@ using System.Threading;
 using System.Threading.Tasks;
 using wRPC;
 using Contract;
-using Contract.Dto;
 using System.IO;
 using Microsoft.Extensions.DependencyInjection;
 using System.Threading.Channels;
+using Dto;
 
 namespace StubClient
 {

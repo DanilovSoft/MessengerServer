@@ -1,5 +1,5 @@
-﻿using Contract.Dto;
-using System.Threading.Tasks;
+﻿using System.Threading.Tasks;
+using Dto;
 using wRPC;
 
 namespace Contract

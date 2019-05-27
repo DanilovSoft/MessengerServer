@@ -1,6 +1,6 @@
 ﻿using System;
 
-namespace Contract.Dto
+namespace Dto
 {
     public class ChatMessage
     {

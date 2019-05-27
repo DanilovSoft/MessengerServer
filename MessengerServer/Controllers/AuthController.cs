@@ -6,8 +6,8 @@ using System.Threading.Tasks;
 using DbModel;
 using EfProvider;
 using wRPC;
-using Contract.Dto;
 using DBCore;
+using Dto;
 using Microsoft.Extensions.Logging;
 
 namespace MessengerServer.Controllers
