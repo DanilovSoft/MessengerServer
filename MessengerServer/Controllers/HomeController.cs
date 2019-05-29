@@ -107,12 +107,14 @@ namespace MessengerServer.Controllers
                 .Select(x => x.UserId)
                 .ToArrayAsync();
 
-            MessageDb messageDb = await _dataProvider.InsertAsync(new MessageDb
+            var messageDb = new MessageDb
             {
+                Id = Guid.NewGuid(),
+                CreatedUtc = DateTime.UtcNow,
                 Text = message,
                 GroupId = groupId,
                 UserId = UserId,
-            });
+            };
 
             var result = new SendMessageResult
             {
@@ -120,29 +122,46 @@ namespace MessengerServer.Controllers
                 Date = messageDb.CreatedUtc,
             };
 
-            foreach (int userId in users.Except(new[] { UserId }))
+            ThreadPool.UnsafeQueueUserWorkItem(async delegate 
             {
-                // Находим подключение пользователя по его UserId.
-                if (Context.Listener.Connections.TryGetValue(userId, out UserConnections connections))
+                // Запись в бд.
+                var taskDbInsert = _dataProvider.InsertAsync(messageDb);
+
+                foreach (int userId in users.Except(new[] { UserId }))
                 {
-                    // Отправить сообщение через все соединения пользователя.
-                    foreach (Context context in connections)
+                    // Находим подключение пользователя по его UserId.
+                    if (Context.Listener.Connections.TryGetValue(userId, out UserConnections connections))
                     {
-                        ThreadPool.UnsafeQueueUserWorkItem(async delegate
+                        // Отправить сообщение через все соединения пользователя.
+                        foreach (Context context in connections)
                         {
-                            var client = context.GetProxy<IClientController>();
-                            try
+                            ThreadPool.UnsafeQueueUserWorkItem(async delegate
                             {
-                                await client.OnMessage(message, fromGroupId: groupId, messageDb.Id);
-                            }
-                            catch (Exception ex)
-                            {
-                                Debug.WriteLine(ex);
-                            }
-                        }, null);
+                                var client = context.GetProxy<IClientController>();
+                                try
+                                {
+                                    await client.OnMessage(message, fromGroupId: groupId, messageDb.Id);
+                                }
+                                catch (Exception ex)
+                                {
+                                    Debug.WriteLine(ex);
+                                }
+                            }, null);
+                        }
                     }
                 }
-            }
+
+                try
+                {
+                    await taskDbInsert;
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Не удалось сохранить сообщение.");
+                }
+
+            }, null);
+
             return result;
         }
 
