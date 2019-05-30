@@ -1,4 +1,6 @@
-﻿namespace wRPC
+﻿using Microsoft.Extensions.DependencyInjection;
+
+namespace wRPC
 {
     public abstract class ServerController : Controller
     {
@@ -6,6 +8,7 @@
         /// Контекст подключения на стороне сервера.
         /// </summary>
         public ServerContext Context { get; internal set; }
+        public ServiceProvider ServiceProvider => ServiceProvider;
 
         /// <summary>
         /// Шорткат для Context.UserId.Value.

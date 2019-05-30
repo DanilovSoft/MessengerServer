@@ -10,6 +10,9 @@ using System.Threading.Tasks;
 using DBCore;
 using Dto;
 using wRPC;
+using Danilovsoft.MicroORM;
+using Npgsql;
+using System.Data.Common;
 
 namespace MessengerServer.Controllers
 {
@@ -17,10 +20,12 @@ namespace MessengerServer.Controllers
     {
         private readonly IDataProvider _dataProvider;
         private readonly ILogger _logger;
+        private readonly SqlORM _sql;
 
-        public HomeController(IDataProvider dataProvider, ILogger<HomeController> logger)
+        public HomeController(IDataProvider dataProvider, ILogger<HomeController> logger, SqlORM sql)
         {
             _dataProvider = dataProvider;
+            _sql = sql;
             _logger = logger;
         }
 
@@ -114,35 +119,77 @@ namespace MessengerServer.Controllers
                 UserId = UserId,
             });
 
+            //            int[] users = await _sql.Sql(@"SELECT ug.""UserId"" 
+            //FROM ""UserGroups"" ug 
+            //WHERE ug.""GroupId"" = @group_id")
+            //                    .Parameter("group_id", groupId)
+            //                    .ToAsync()
+            //                    .ScalarArray<int>();
+
+            //await _sql.Sql(
+            //    @"INSERT INTO public.""Messages"" (""Id"", ""CreatedUtc"", ""Text"", ""GroupId"", ""UserId"", ""UpdatedUtc"")
+            //        SELECT @id, @created, @text, @group_id, @user_id, @updated_utc
+            //          WHERE
+            //            EXISTS(
+            //                SELECT * FROM ""Groups"" g
+            //                JOIN ""UserGroups"" ug ON ug.""GroupId"" = g.""Id""
+            //                WHERE g.""Id"" = @group_id AND ug.""UserId"" = @sender
+            //            )")
+            //    .Parameter("id", messageDb.Id)
+            //    .Parameter("created", messageDb.CreatedUtc)
+            //    .Parameter("updated_utc", messageDb.CreatedUtc)
+            //    .Parameter("text", message)
+            //    .Parameter("group_id", groupId)
+            //    .Parameter("user_id", UserId)
+            //    .Parameter("sender", UserId)
+            //    .ToAsync()
+            //    .Execute();
+
+            // Пользователи входящие в группу.
+            int[] users = await _dataProvider
+                .Get<GroupDb>()
+                .Where(x => x.Users.Any(y => y.UserId == UserId)) // Группы в которые входит пользователь.
+                .Where(x => x.Id == groupId)
+                .SelectMany(x => x.Users)
+                .Select(x => x.UserId)
+                .ToArrayAsync();
+
             var result = new SendMessageResult
             {
                 MessageId = messageDb.Id.ToByteArray(),
                 Date = messageDb.CreatedUtc,
             };
 
-            foreach (int userId in users.Except(new[] { UserId }))
-            {
-                // Находим подключение пользователя по его UserId.
-                if (Context.Listener.Connections.TryGetValue(userId, out UserConnections connections))
-                {
-                    // Отправить сообщение через все соединения пользователя.
-                    foreach (Context context in connections)
-                    {
-                        ThreadPool.UnsafeQueueUserWorkItem(async delegate
-                        {
-                            var client = context.GetProxy<IClientController>();
-                            try
-                            {
-                                await client.OnMessage(message, fromGroupId: groupId, messageDb.Id);
-                            }
-                            catch (Exception ex)
-                            {
-                                Debug.WriteLine(ex);
-                            }
-                        }, null);
-                    }
-                }
-            }
+            // Запись в бд.
+            await _dataProvider.InsertAsync(messageDb);
+            
+            //ThreadPool.UnsafeQueueUserWorkItem(delegate 
+            //{
+            //    foreach (int userId in users.Except(new[] { UserId }))
+            //    {
+            //        // Находим подключение пользователя по его UserId.
+            //        if (Context.Listener.Connections.TryGetValue(userId, out UserConnections connections))
+            //        {
+            //            // Отправить сообщение через все соединения пользователя.
+            //            foreach (Context context in connections)
+            //            {
+            //                ThreadPool.UnsafeQueueUserWorkItem(async delegate
+            //                {
+            //                    var client = context.GetProxy<IClientController>();
+            //                    try
+            //                    {
+            //                        await client.OnMessage(message, fromGroupId: groupId, id);
+            //                    }
+            //                    catch (Exception ex)
+            //                    {
+            //                        Debug.WriteLine(ex);
+            //                    }
+            //                }, null);
+            //            }
+            //        }
+            //    }
+            //}, null);
+
             return result;
         }
 

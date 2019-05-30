@@ -38,7 +38,7 @@ namespace MessengerServer.Controllers
                     Name = x.Login,
                     ImageUrl = x.Profile.AvatarUrl,
                 })
-                .SingleOrDefaultAsync(Context.CancellationToken);
+                .FirstOrDefaultAsync(Context.CancellationToken);
 
             if (user == null)
             {

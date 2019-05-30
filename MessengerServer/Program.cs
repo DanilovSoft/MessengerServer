@@ -25,6 +25,7 @@ namespace MessengerServer
                     using (var listener = new Listener(Port))
                     {
                         listener.IoC.AddDb(configuration);
+                        listener.IoC.AddDbMicro(configuration);
 
                         listener.IoC.AddLogging(loggingBuilder =>
                         {

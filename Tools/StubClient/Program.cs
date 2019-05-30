@@ -7,6 +7,7 @@ using System.IO;
 using Microsoft.Extensions.DependencyInjection;
 using System.Threading.Channels;
 using Dto;
+using System.Diagnostics;
 
 namespace StubClient
 {
@@ -58,7 +59,12 @@ namespace StubClient
 
                     Console.Write("Введите сообдение: ");
                     string line = Console.ReadLine();
+
+                    var sw = Stopwatch.StartNew();
                     await homeController.SendMessage(line, 1);
+                    sw.Stop();
+
+                    Console.WriteLine($"Время: {sw.ElapsedMilliseconds} msec");
                 }
             }
         }
