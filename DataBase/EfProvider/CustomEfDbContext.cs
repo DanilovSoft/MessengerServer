@@ -53,7 +53,7 @@ namespace EfProvider
             }
 
             EnumFluentConfig.Config(builder);
-            IndexFluentConfig.Config(builder);
+            //IndexFluentConfig.Config(builder);
             ForeignKeysFluentConfig.Config(builder);
             AutoIncrementConfig.Config(builder);
             DataSeedingConfig.Config(builder);

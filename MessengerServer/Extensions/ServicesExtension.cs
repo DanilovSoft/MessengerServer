@@ -1,4 +1,4 @@
-using Danilovsoft.MicroORM;
+using DanilovSoft.MicroORM;
 using DBCore;
 using DBCore.Store;
 using DbModel.Store;
@@ -13,36 +13,10 @@ namespace MessengerServer.Extensions
     {
         public static void AddDb(this IServiceCollection services, IConfiguration configuration)
         {
-            services.AddSingleton<IModelStore, ModelStore>();
-            services
-                .AddEntityFrameworkNpgsql()
-                .AddDbContext<CustomEfDbContext>(optionsBuilder =>
-                {
-                    optionsBuilder.UseNpgsql(configuration["DbConnection"],
-                        o => o.MigrationsAssembly("DbMigrator"));
-                });
+            string connectionString = configuration.GetConnectionString("Default");
+            var sql = new SqlORM(connectionString, Npgsql.NpgsqlFactory.Instance);
 
-            services.AddScoped<IDataProvider, EfDataProvider>();
-        }
-
-        public static void AddDbMicro(this IServiceCollection services, IConfiguration configuration)
-        {
-            string connectionString = configuration["DbConnectionMicro"];
-            SqlORM sql = new SqlORM(connectionString, Npgsql.NpgsqlFactory.Instance);
-
-            services.AddSingleton(typeof(SqlORM), sql);
-
-            //services.AddSingleton<IModelStore, ModelStore>();
-
-            //services
-            //    .AddEntityFrameworkNpgsql()
-            //    .AddDbContext<CustomEfDbContext>(optionsBuilder =>
-            //    {
-            //        optionsBuilder.UseNpgsql(configuration["DbConnection"],
-            //            o => o.MigrationsAssembly("DbMigrator"));
-            //    });
-
-            //services.AddScoped<IDataProvider, EfDataProvider>();
+            services.AddSingleton<SqlORM>(sql);
         }
     }
 }

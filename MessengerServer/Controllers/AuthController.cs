@@ -9,17 +9,18 @@ using wRPC;
 using DBCore;
 using Dto;
 using Microsoft.Extensions.Logging;
+using DanilovSoft.MicroORM;
 
 namespace MessengerServer.Controllers
 {
     public sealed class AuthController : ServerController, IAuthController
     {
-        private readonly IDataProvider _dataProvider;
+        private readonly SqlORM _sql;
         private readonly ILogger _logger;
 
-        public AuthController(IDataProvider dataProvider, ILogger<AuthController> logger)
+        public AuthController(SqlORM sql, ILogger<AuthController> logger)
         {
-            _dataProvider = dataProvider;
+            _sql = sql;
             _logger = logger;
         }
 
@@ -27,18 +28,29 @@ namespace MessengerServer.Controllers
         [ProducesProtoBuf]
         public async Task<AuthorizationResult> Authorize(string login, string password)
         {
-            var user = await _dataProvider.Get<UserDb>()
-                .Where(x => 
-                    x.NormalLogin == login.ToLower() &&
-                    x.Password == PostgresEfExtensions.Crypt(password, x.Password)
-                )
-                .Select(x => new
-                {
-                    x.Id,
-                    Name = x.Login,
-                    ImageUrl = x.Profile.AvatarUrl,
-                })
-                .FirstOrDefaultAsync(Context.CancellationToken);
+            var user = _sql.Sql(@"
+SELECT u.user_id, u.login, p.avatar_url, p.display_name
+FROM users u
+JOIN user_profiles p USING(user_id)
+WHERE 
+    LOWER(u.login) = @login 
+    AND u.password = crypt(@pass, u.password)")
+                .Parameter("login", login?.ToLower())
+                .Parameter("pass", password)
+                .SingleOrDefault(new { id = 0, login = "", avatar_url = "", display_name = "" });
+
+            //var user = await _dataProvider.Get<UserDb>()
+            //    .Where(x => 
+            //        x.NormalLogin == login.ToLower() &&
+            //        x.Password == PostgresEfExtensions.Crypt(password, x.Password)
+            //    )
+            //    .Select(x => new
+            //    {
+            //        x.Id,
+            //        Name = x.Login,
+            //        ImageUrl = x.Profile.AvatarUrl,
+            //    })
+            //    .FirstOrDefaultAsync(Context.CancellationToken);
 
             if (user == null)
             {
@@ -47,16 +59,16 @@ namespace MessengerServer.Controllers
             }
 
             // Авторизовываем текущее подключение.
-            BearerToken bearerToken = Context.Authorize(userId: user.Id);
+            BearerToken bearerToken = Context.Authorize(userId: user.id);
 
-            _logger.LogInformation($"Авторизован пользователь: \"{login}\"");
+            _logger.LogInformation($"Авторизован пользователь: \"{user.login}\"");
 
             return new AuthorizationResult
             {
                 BearerToken = bearerToken,
-                UserId = user.Id,
-                UserName = user.Name,
-                ImageUrl = new Uri(user.ImageUrl)
+                UserId = user.id,
+                UserName = user.login,
+                ImageUrl = new Uri(user.avatar_url)
             };
         }
 

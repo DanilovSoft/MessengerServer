@@ -1,4 +1,5 @@
 ﻿using System.IO;
+using System.Threading.Tasks;
 using DbModel.Store;
 using EfProvider;
 using JetBrains.Annotations;
@@ -33,16 +34,13 @@ namespace DataGenerator
                 .AddJsonFile("appsettings.local.json", true);
 
             IConfigurationRoot configuration = configurationBuilder.Build();
-            var builder = new DbContextOptionsBuilder()
-                .UseNpgsql(configuration["DbConnection"], x => x.MigrationsAssembly("DbMigrator"));
 
-            var modelStore = new ModelStore();
-            var context = new CustomEfDbContext(modelStore, builder.Options);
-            var provider = new EfDataProvider(context);
+            string connectionString = configuration.GetConnectionString("Default");
+            var sql = new DanilovSoft.MicroORM.SqlORM(connectionString, Npgsql.NpgsqlFactory.Instance);
 
-            var generator = new DataGenerator(provider, _environmentName);
+            var generator = new DataGenerator(sql, _environmentName);
 
-            generator.GenAsync().GetAwaiter().GetResult();
+            generator.Gen();
         }
     }
 }
