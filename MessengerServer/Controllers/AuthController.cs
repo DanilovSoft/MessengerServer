@@ -9,6 +9,8 @@ using DBCore;
 using Dto;
 using Microsoft.Extensions.Logging;
 using DanilovSoft.MicroORM;
+using System.Security;
+using System.Text;
 
 namespace MessengerServer.Controllers
 {
@@ -41,10 +43,8 @@ WHERE
 
             if (user == null)
             {
-                _logger.LogWarning("Не верный логин и/или пароль");
-
-                return BadRequest("Не верный логин и/или пароль");
-                throw new RemoteException("Не верный логин и/или пароль");
+                _logger.LogWarning($"Не верный логин и/или пароль. Login: \"{login}\"");
+                return BadRequest("Не верный логин и/или пароль.");
             }
 
             // Авторизовываем текущее подключение.
@@ -57,14 +57,53 @@ WHERE
                 BearerToken = bearerToken,
                 UserId = user.UserId,
                 UserName = user.Login,
-                ImageUrl = new Uri(user.AvatarUrl)
+                ImageUrl = user.AvatarUrl == null ? null : new Uri(user.AvatarUrl)
             });
         }
 
         [AllowAnonymous]
-        public void Register(string login, string password)
+        public async Task<IActionResult> Register(string login, string password)
         {
-            
+            int? user_id;
+            using (var t = _sql.Transaction())
+            {
+                await t.OpenTransactionAsync();
+
+                user_id = await t.Sql(@"INSERT INTO users (login, password)
+VALUES (@login, crypt(@password, gen_salt('bf')))
+ON CONFLICT (login) DO NOTHING RETURNING user_id")
+                    .Parameter("login", login)
+                    .Parameter("password", password)
+                    .ToAsync()
+                    .ScalarOrDefault<int?>();
+
+                if (user_id != null)
+                {
+                    await t.Sql("INSERT INTO user_profiles (user_id) VALUES (@user_id)")
+                        .Parameter("user_id", user_id)
+                        .ToAsync()
+                        .Execute();
+
+                    t.Commit();
+                }
+            }
+
+            if (user_id != null)
+            {
+                _logger.LogInformation($"Зарегистрирован пользователь: \"{login}\"");
+
+                // Авторизовываем текущее подключение.
+                BearerToken bearerToken = Context.Authorize(user_id.Value);
+
+                return Ok(new AuthorizationResult
+                {
+                    BearerToken = bearerToken,
+                    UserId = user_id.Value,
+                    UserName = null,
+                    ImageUrl = null,
+                });
+            }
+            return BadRequest($"Логин \"{login}\" уже занят.");
         }
 
         [AllowAnonymous]

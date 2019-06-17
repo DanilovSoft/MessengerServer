@@ -8,6 +8,9 @@ using Microsoft.Extensions.DependencyInjection;
 using System.Threading.Channels;
 using Dto;
 using System.Diagnostics;
+using System.Security;
+using System.Runtime.InteropServices;
+using System.Text;
 
 namespace StubClient
 {
@@ -15,7 +18,7 @@ namespace StubClient
     {
         private const int Port = 65125;
 
-        static async Task Main()
+        static void Main()
         {
             Console.Title = "Клиент";
 
@@ -37,15 +40,17 @@ namespace StubClient
                 var homeController = client.GetProxy<IHomeController>();
                 var utilsController = client.GetProxy<IUtilsController>();
 
+                //AuthorizationResult regResult = authController.Register("Test123456", "my_password").GetAwaiter().GetResult();
+                
                 Console.WriteLine("Авторизация...");
                 AuthorizationResult authorizationResult;
                 try
                 {
-                    authorizationResult = await authController.Authorize(login: "Test2", password: "_123456");
+                    authorizationResult = authController.Authorize(login: "Test123456", password: "my_password").GetAwaiter().GetResult();
                 }
                 catch (Exception ex)
                 {
-                    throw;
+                    return;
                 }
                 
                 client.BearerToken = authorizationResult.BearerToken.Key;
@@ -54,7 +59,7 @@ namespace StubClient
                 //var user = groups[3];
                 while (true)
                 {
-                    await homeController.GetConversations();
+                    homeController.GetConversations().GetAwaiter().GetResult();
                     //byte[] img = await utilsController.ShrinkImage(new Uri("https://s3.amazonaws.com/uifaces/faces/twitter/batsirai/128.jpg"), 183);
                     //File.WriteAllBytes("D:\\test.jpg", img);
 
@@ -62,7 +67,7 @@ namespace StubClient
                     string line = Console.ReadLine();
 
                     var sw = Stopwatch.StartNew();
-                    await homeController.SendMessage(line, 1);
+                    homeController.SendMessage(line, 1).GetAwaiter().GetResult();
                     sw.Stop();
 
                     Console.WriteLine($"Время: {sw.ElapsedMilliseconds} msec");

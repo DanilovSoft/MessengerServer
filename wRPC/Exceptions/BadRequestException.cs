@@ -7,21 +7,21 @@ namespace wRPC
     /// Исключение этого типа прозрачно транслируется на удаленное подключение.
     /// </summary>
     [Serializable]
-    public class RemoteException : Exception
+    internal class BadRequestException : Exception
     {
         public StatusCode ErrorCode { get; }
 
-        public RemoteException()
+        public BadRequestException()
         {
 
         }
 
-        public RemoteException(string message) : base(message)
+        public BadRequestException(string message) : base(message)
         {
 
         }
 
-        public RemoteException(string message, StatusCode errorCode) : base(message)
+        public BadRequestException(string message, StatusCode errorCode) : base(message)
         {
             ErrorCode = errorCode;
         }

@@ -59,7 +59,7 @@ namespace wRPC
         /// Производит авторизацию текущего подключения.
         /// </summary>
         /// <param name="userId"></param>
-        /// <exception cref="RemoteException"/>
+        /// <exception cref="BadRequestException"/>
         public BearerToken Authorize(int userId)
         {
             // Функцию могут вызвать из нескольких потоков.
@@ -98,7 +98,7 @@ namespace wRPC
         /// Производит авторизацию текущего подключения по токену.
         /// </summary>
         /// <param name="userId"></param>
-        /// <exception cref="RemoteException"/>
+        /// <exception cref="BadRequestException"/>
         public bool AuthorizeToken(byte[] encriptedToken)
         {
             // Расшифрованный токен полученный от пользователя.
@@ -162,7 +162,7 @@ namespace wRPC
                     UserConnections = AddConnection(userId);
                 }
                 else
-                    throw new RemoteException($"You are already authorized as 'UserId: {UserId}'", StatusCode.BadRequest);
+                    throw new BadRequestException($"You are already authorized as 'UserId: {UserId}'", StatusCode.BadRequest);
             }
         }
 
@@ -226,7 +226,7 @@ namespace wRPC
         /// <summary>
         /// Проверяет доступность запрашиваемого метода пользователем.
         /// </summary>
-        /// <exception cref="RemoteException"/>
+        /// <exception cref="BadRequestException"/>
         protected override void InvokeMethodPermissionCheck(MethodInfo method, Type controllerType)
         {
             // Проверить доступен ли метод пользователю.
@@ -241,7 +241,7 @@ namespace wRPC
             if (Attribute.IsDefined(controllerType, typeof(AllowAnonymousAttribute)))
                 return;
 
-            throw new RemoteException("The request requires user authentication", StatusCode.Unauthorized);
+            throw new BadRequestException("The request requires user authentication", StatusCode.Unauthorized);
         }
 
         private protected override Task<SocketQueue> GetOrCreateConnectionAsync()

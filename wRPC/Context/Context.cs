@@ -493,7 +493,7 @@ namespace wRPC
                                         string errorMessage = mem.ReadAsString();
                                         
                                         // Сообщить ожидающему потоку что удаленная сторона вернула ошибку в результате выполнения запроса.
-                                        tcs.TrySetException(new RemoteException(errorMessage, header.StatusCode));
+                                        tcs.TrySetException(new BadRequestException(errorMessage, header.StatusCode));
                                     }
                                 }
                             }
@@ -742,17 +742,17 @@ namespace wRPC
         /// <summary>
         /// Вызывает запрошенный метод контроллера и возвращает результат.
         /// </summary>
-        /// <exception cref="RemoteException"/>
+        /// <exception cref="BadRequestException"/>
         private async Task<object> InvokeControllerAsync(RequestMessage receivedRequest)
         {
             // Находим контроллер.
             Type controllerType = FindRequestedController(receivedRequest, out string controllerName, out string actionName);
             if(controllerType == null)
-                throw new RemoteException($"Unable to find requested controller \"{controllerName}\"", StatusCode.ActionNotFound);
+                throw new BadRequestException($"Unable to find requested controller \"{controllerName}\"", StatusCode.ActionNotFound);
 
             // Ищем делегат запрашиваемой функции.
             if (!_controllerActions.TryGetValue(controllerType, actionName, out ControllerAction action))
-                throw new RemoteException($"Unable to find requested action \"{receivedRequest.ActionName}\"", StatusCode.ActionNotFound);
+                throw new BadRequestException($"Unable to find requested action \"{receivedRequest.ActionName}\"", StatusCode.ActionNotFound);
 
             // Контекст запроса запоминает запрашиваемый метод.
             receivedRequest.RequestContext.ActionToInvoke = action;
@@ -817,7 +817,7 @@ namespace wRPC
         /// <summary>
         /// Проверяет доступность запрашиваемого метода для удаленного пользователя.
         /// </summary>
-        /// <exception cref="RemoteException"/>
+        /// <exception cref="BadRequestException"/>
         protected abstract void InvokeMethodPermissionCheck(MethodInfo method, Type controllerType);
         protected abstract void BeforeInvokePrepareController(Controller controller);
 
@@ -886,19 +886,23 @@ namespace wRPC
         /// </summary>
         private async Task<Message> GetResponseAsync(RequestMessage receivedRequest)
         {
+            // Результат контроллера. Может быть Task.
             object rawResult;
-            Message messageToSend;
-
             try
             {
                 // Выполнить запрашиваемую функцию.
                 rawResult = await InvokeControllerAsync(receivedRequest);
             }
+            catch (BadRequestException ex)
+            {
+                // Вернуть результат с ошибкой.
+                return Message.FromResult(receivedRequest, new BadRequestResult(ex.Message));
+            }
             catch (Exception ex)
             // Злая ошибка обработки запроса. Аналогично ошибке 500.
             {
                 // Прервать отладку.
-                //DebugOnly.Break();
+                DebugOnly.Break();
 
                 Debug.WriteLine(ex);
 
