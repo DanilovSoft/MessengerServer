@@ -132,7 +132,7 @@ namespace wRPC
                     try
                     {
                         // Простое подключение веб-сокета.
-                        await ws.ConnectAsync(_uri).ConfigureAwait(false);
+                        await ws.ConnectAsync(_uri, CancellationToken.None).ConfigureAwait(false);
                     }
                     catch
                     // Не удалось подключиться (сервер не запущен?).

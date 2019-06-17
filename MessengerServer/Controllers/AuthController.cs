@@ -4,7 +4,6 @@ using System;
 using System.Linq;
 using System.Threading.Tasks;
 using DbModel;
-using EfProvider;
 using wRPC;
 using DBCore;
 using Dto;
@@ -28,7 +27,9 @@ namespace MessengerServer.Controllers
         [ProducesProtoBuf]
         public async Task<AuthorizationResult> Authorize(string login, string password)
         {
-            var user = _sql.Sql(@"
+            _logger.LogInformation($"Попытка выполнить авторизацию. login = {login}");
+
+            var user = await _sql.Sql(@"
 SELECT u.user_id, u.login, p.avatar_url, p.display_name
 FROM users u
 JOIN user_profiles p USING(user_id)
@@ -37,20 +38,8 @@ WHERE
     AND u.password = crypt(@pass, u.password)")
                 .Parameter("login", login?.ToLower())
                 .Parameter("pass", password)
+                .ToAsync()
                 .SingleOrDefault(new { id = 0, login = "", avatar_url = "", display_name = "" });
-
-            //var user = await _dataProvider.Get<UserDb>()
-            //    .Where(x => 
-            //        x.NormalLogin == login.ToLower() &&
-            //        x.Password == PostgresEfExtensions.Crypt(password, x.Password)
-            //    )
-            //    .Select(x => new
-            //    {
-            //        x.Id,
-            //        Name = x.Login,
-            //        ImageUrl = x.Profile.AvatarUrl,
-            //    })
-            //    .FirstOrDefaultAsync(Context.CancellationToken);
 
             if (user == null)
             {

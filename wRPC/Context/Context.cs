@@ -12,6 +12,8 @@ using DynamicMethodsLib;
 using MyWebSocket = DanilovSoft.WebSocket.WebSocket;
 using Microsoft.Extensions.DependencyInjection;
 using System.Threading.Channels;
+using DanilovSoft.WebSocket;
+using System.Net.Sockets;
 
 namespace wRPC
 {
@@ -286,7 +288,7 @@ namespace wRPC
                         #region Читаем все фреймы веб-сокета в стрим.
 
                         Header header = null;
-                        WebSocketReceiveResult webSocketMessage;
+                        ValueWebSocketReceiveExResult webSocketMessage;
 
                         // Арендуем максимум памяти на один фрейм веб-сокета.
                         using (var frameMem = new MemoryPoolStream(WebSocketMaxFrameSize))
@@ -300,7 +302,7 @@ namespace wRPC
                                 try
                                 {
                                     // Читаем фрейм веб-сокета.
-                                    webSocketMessage = await socketQueue.WebSocket.ReceiveAsync(segment, CancellationToken.None);
+                                    webSocketMessage = await socketQueue.WebSocket.ReceiveExAsync(segment, CancellationToken.None);
                                 }
                                 catch (Exception ex)
                                 // Обрыв соединения.
@@ -312,87 +314,99 @@ namespace wRPC
                                     return;
                                 }
 
-                                #endregion
-
-                                #region Проверка на Close.
-
-                                // Другая сторона закрыла соединение.
-                                if (webSocketMessage.MessageType == WebSocketMessageType.Close)
+                                if (webSocketMessage.ErrorCode == SocketError.Success)
                                 {
-                                    // Сформировать причину закрытия соединения.
-                                    string exceptionMessage = GetMessageFromCloseFrame(webSocketMessage);
+                                    #endregion
 
-                                    // Сообщить потокам что удалённая сторона выполнила закрытие соединения.
-                                    var socketClosedException = new SocketClosedException(exceptionMessage);
+                                    #region Проверка на Close.
 
-                                    // Оповестить об обрыве.
-                                    AtomicDisconnect(socketQueue, socketClosedException);
-
-                                    // Завершить поток.
-                                    return;
-                                }
-                                #endregion
-
-                                // Копирование фрейма в MemoryStream.
-                                mem.Write(pooledBuffer, 0, webSocketMessage.Count);
-
-                                if(header == null && Header.TryReadLengthPrefix(mem, out int length) && mem.Length >= (length + 4))
-                                // Пора десериализовать заголовок.
-                                {
-                                    #region Десериализуем фрейм веб-сокета в заголовок протокола.
-
-                                    mem.Position = 0;
-                                    try
+                                    // Другая сторона закрыла соединение.
+                                    if (webSocketMessage.MessageType == WebSocketMessageType.Close)
                                     {
-                                        header = Header.DeserializeWithLengthPrefix(mem);
+                                        // Сформировать причину закрытия соединения.
+                                        string exceptionMessage = GetMessageFromCloseFrame(webSocketMessage, socketQueue.WebSocket);
+
+                                        // Сообщить потокам что удалённая сторона выполнила закрытие соединения.
+                                        var socketClosedException = new SocketClosedException(exceptionMessage);
+
+                                        // Оповестить об обрыве.
+                                        AtomicDisconnect(socketQueue, socketClosedException);
+
+                                        // Завершить поток.
+                                        return;
                                     }
-                                    catch (Exception headerException)
-                                    // Не удалось десериализовать заголовок.
+                                    #endregion
+
+                                    // Копирование фрейма в MemoryStream.
+                                    mem.Write(pooledBuffer, 0, webSocketMessage.Count);
+
+                                    if (header == null && Header.TryReadLengthPrefix(mem, out int length) && mem.Length >= (length + 4))
+                                    // Пора десериализовать заголовок.
                                     {
-                                        var protocolErrorException = new ProtocolErrorException(ProtocolHeaderErrorMessage, headerException);
+                                        #region Десериализуем фрейм веб-сокета в заголовок протокола.
 
-                                        // Сообщить потокам что обрыв произошел по вине удалённой стороны.
-                                        socketQueue.RequestCollection.OnDisconnect(protocolErrorException);
-
+                                        mem.Position = 0;
                                         try
                                         {
-                                            // Отключаемся от сокета с небольшим таймаутом.
-                                            using (var cts = new CancellationTokenSource(3000))
-                                                await socketQueue.WebSocket.CloseAsync(WebSocketCloseStatus.ProtocolError, "Ошибка десериализации заголовка.", cts.Token);
+                                            header = Header.DeserializeWithLengthPrefix(mem);
                                         }
-                                        catch (Exception ex)
-                                        // Злой обрыв соединения.
+                                        catch (Exception headerException)
+                                        // Не удалось десериализовать заголовок.
                                         {
+                                            var protocolErrorException = new ProtocolErrorException(ProtocolHeaderErrorMessage, headerException);
+
+                                            // Сообщить потокам что обрыв произошел по вине удалённой стороны.
+                                            socketQueue.RequestCollection.OnDisconnect(protocolErrorException);
+
+                                            try
+                                            {
+                                                // Отключаемся от сокета с небольшим таймаутом.
+                                                using (var cts = new CancellationTokenSource(3000))
+                                                    await socketQueue.WebSocket.CloseAsync(WebSocketCloseStatus.ProtocolError, "Ошибка десериализации заголовка.", cts.Token);
+                                            }
+                                            catch (Exception ex)
+                                            // Злой обрыв соединения.
+                                            {
+                                                // Оповестить об обрыве.
+                                                AtomicDisconnect(socketQueue, ex);
+
+                                                // Завершить поток.
+                                                return;
+                                            }
+
                                             // Оповестить об обрыве.
-                                            AtomicDisconnect(socketQueue, ex);
+                                            AtomicDisconnect(socketQueue, protocolErrorException);
 
                                             // Завершить поток.
                                             return;
                                         }
 
-                                        // Оповестить об обрыве.
-                                        AtomicDisconnect(socketQueue, protocolErrorException);
+                                        // Размер заголовка определён.
+                                        headerLength = (int)mem.Position;
 
-                                        // Завершить поток.
-                                        return;
+                                        // Если есть еще фреймы веб-сокета.
+                                        if (!webSocketMessage.EndOfMessage)
+                                        {
+                                            //mem.Position = mem.Length;
+
+                                            // Возвращаем позицию стрима в конец для следующей записи.
+                                            mem.Seek(0, SeekOrigin.End);
+
+                                            // Увеличим стрим до размера всего сообщения.
+                                            mem.Capacity = (header.ContentLength + headerLength);
+                                        }
+
+                                        #endregion
                                     }
+                                }
+                                else
+                                // Обрыв соединения.
+                                {
+                                    // Оповестить об обрыве.
+                                    AtomicDisconnect(socketQueue, new SocketException((int)webSocketMessage.ErrorCode));
 
-                                    // Размер заголовка определён.
-                                    headerLength = (int)mem.Position;
-
-                                    // Если есть еще фреймы веб-сокета.
-                                    if (!webSocketMessage.EndOfMessage)
-                                    {
-                                        //mem.Position = mem.Length;
-
-                                        // Возвращаем позицию стрима в конец для следующей записи.
-                                        mem.Seek(0, SeekOrigin.End);
-
-                                        // Увеличим стрим до размера всего сообщения.
-                                        mem.Capacity = (header.ContentLength + headerLength);
-                                    }
-
-                                    #endregion
+                                    // Завершить поток.
+                                    return;
                                 }
                             } while (!webSocketMessage.EndOfMessage);
                         }
@@ -692,21 +706,21 @@ namespace wRPC
         /// <summary>
         /// Формирует сообщение ошибки из фрейма веб-сокета информирующем о закрытии соединения.
         /// </summary>
-        private string GetMessageFromCloseFrame(WebSocketReceiveResult webSocketMessage)
+        private string GetMessageFromCloseFrame(ValueWebSocketReceiveExResult webSocketMessage, DanilovSoft.WebSocket.WebSocket webSocket)
         {
             string exceptionMessage = null;
-            if (webSocketMessage.CloseStatus != null)
+            if (webSocket.CloseStatus != null)
             {
-                exceptionMessage = $"CloseStatus: {webSocketMessage.CloseStatus.ToString()}";
+                exceptionMessage = $"CloseStatus: {webSocket.CloseStatus.ToString()}";
 
-                if (!string.IsNullOrEmpty(webSocketMessage.CloseStatusDescription))
+                if (!string.IsNullOrEmpty(webSocket.CloseStatusDescription))
                 {
-                    exceptionMessage += $", Description: \"{webSocketMessage.CloseStatusDescription}\"";
+                    exceptionMessage += $", Description: \"{webSocket.CloseStatusDescription}\"";
                 }
             }
-            else if (!string.IsNullOrEmpty(webSocketMessage.CloseStatusDescription))
+            else if (!string.IsNullOrEmpty(webSocket.CloseStatusDescription))
             {
-                exceptionMessage = $"Description: \"{webSocketMessage.CloseStatusDescription}\"";
+                exceptionMessage = $"Description: \"{webSocket.CloseStatusDescription}\"";
             }
 
             if (exceptionMessage == null)

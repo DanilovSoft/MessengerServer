@@ -10,7 +10,6 @@ using System.Threading.Tasks;
 using DBCore;
 using Dto;
 using wRPC;
-using Npgsql;
 using System.Data.Common;
 using System.Collections.Generic;
 using DanilovSoft.MicroORM;

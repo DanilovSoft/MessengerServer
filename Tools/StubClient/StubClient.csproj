@@ -7,7 +7,6 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="DanilovSoft.WebSocket" Version="1.1.7" />
     <PackageReference Include="MsgPack.Cli" Version="1.0.1" />
     <PackageReference Include="Newtonsoft.Json.Bson" Version="1.0.2" />
     <PackageReference Include="protobuf-net" Version="2.4.0" />
@@ -15,6 +14,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\..\..\DanilovSoft.WebSocket\WebSockets\DanilovSoft.WebSocket.csproj" />
     <ProjectReference Include="..\..\Contract\Contract.csproj" />
     <ProjectReference Include="..\..\wRPC\wRPC.csproj" />
   </ItemGroup>
