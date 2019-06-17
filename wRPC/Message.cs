@@ -10,13 +10,14 @@ namespace wRPC
     {
         #region Debug
 
-        [DebuggerBrowsable(DebuggerBrowsableState.Never)]
-        private string DebugDisplay => "{" + $"\"{(StatusCode == StatusCode.Request ? $"Request: {ActionName}" : $"Result: {Result}")}\"" + "}";
+        //[DebuggerBrowsable(DebuggerBrowsableState.Never)]
+        //private string DebugDisplay => "{" + $"\"{(StatusCode == StatusCode.Request ? $"Request: {ActionName}" : $"Result: {Result}")}\"" + "}";
 
         #endregion
 
         public short Uid { get; set; }
-        public StatusCode StatusCode { get; private set; }
+        public bool IsRequest { get; }
+        //public StatusCode StatusCode { get; private set; }
         public string ActionName { get; private set; }
         /// <summary>
         /// Параметры для удаленного метода <see cref="ActionName"/>.
@@ -24,10 +25,10 @@ namespace wRPC
         public Arg[] Args { get; private set; }
         public object Result { get; private set; }
 
-        public string Error { get; private set; }
+        //public string Error { get; private set; }
 
         /// <summary>
-        /// Связанный запрос.
+        /// Связанный запрос. Может быть <see langword="null"/>.
         /// </summary>
         public RequestMessage ReceivedRequest { get; set; }
 
@@ -37,19 +38,19 @@ namespace wRPC
         private Message(string actionName, Arg[] args)
         {
             ActionName = actionName;
-            StatusCode = StatusCode.Request;
+            IsRequest = true;
+            //StatusCode = StatusCode.Request;
             Args = args;
         }
 
         /// <summary>
         /// Конструктор ответа.
         /// </summary>
-        private Message(short uid, object result, string error, StatusCode errorCode)
+        private Message(short uid, object result)
         {
             Uid = uid;
             Result = result;
-            Error = error;
-            StatusCode = errorCode;
+            //StatusCode = errorCode;
         }
 
         public static Message CreateRequest(string actionName, Arg[] args)
@@ -59,17 +60,25 @@ namespace wRPC
 
         public static Message FromResult(short uid, object rawResult)
         {
-            return new Message(uid, rawResult, error: null, StatusCode.Ok);
+            return new Message(uid, rawResult);
         }
 
-        public static Message FromError(short uid, RemoteException remoteException)
+        public static Message FromResult(RequestMessage receivedRequest, object rawResult)
         {
-            return new Message(uid, result: null, remoteException.Message, remoteException.ErrorCode);
+            var message = new Message(receivedRequest.Header.Uid, rawResult);
+
+            message.ReceivedRequest = receivedRequest;
+            return message;
         }
 
-        public static Message FromError(short uid, string errorMessage, StatusCode errorCode)
-        {
-            return new Message(uid, result: null, errorMessage, errorCode);
-        }
+        //public static Message FromError(short uid, RemoteException remoteException)
+        //{
+        //    return new Message(uid, result: new ErrorResult(remoteException.Message), remoteException.ErrorCode);
+        //}
+
+        //public static Message FromError(short uid, string errorMessage, StatusCode errorCode)
+        //{
+        //    return new Message(uid, result: new ErrorResult(errorMessage), errorCode);
+        //}
     }
 }

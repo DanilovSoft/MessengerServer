@@ -41,7 +41,7 @@ namespace StubClient
                 AuthorizationResult authorizationResult;
                 try
                 {
-                    authorizationResult = await authController.Authorize(login: "Test2", password: "123456");
+                    authorizationResult = await authController.Authorize(login: "Test2", password: "_123456");
                 }
                 catch (Exception ex)
                 {
@@ -54,6 +54,7 @@ namespace StubClient
                 //var user = groups[3];
                 while (true)
                 {
+                    await homeController.GetConversations();
                     //byte[] img = await utilsController.ShrinkImage(new Uri("https://s3.amazonaws.com/uifaces/faces/twitter/batsirai/128.jpg"), 183);
                     //File.WriteAllBytes("D:\\test.jpg", img);
 

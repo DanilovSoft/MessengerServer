@@ -9,13 +9,11 @@ using Mono.Options;
 
 namespace DataGenerator
 {
-    [UsedImplicitly(ImplicitUseKindFlags.InstantiatedWithFixedConstructorSignature)]
     public static class GeneratorProgram
     {
+        private static readonly string _baseDirectory;
         private static string _environmentName = Microsoft.AspNetCore.Hosting.EnvironmentName.Development;
-        private static string _baseDirectory;
 
-        [UsedImplicitly]
         private static void Main(string[] args)
         {
             if (args.Length > 0)

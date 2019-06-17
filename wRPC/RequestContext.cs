@@ -9,8 +9,6 @@ namespace wRPC
     /// </summary>
     internal sealed class RequestContext
     {
-        //public RequestMessage RequestMessage { get; set; }
-
         /// <summary>
         /// Запрашиваемый экшен контроллера.
         /// </summary>

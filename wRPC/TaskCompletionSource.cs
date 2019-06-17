@@ -36,6 +36,8 @@ namespace wRPC
 
         public TaskCompletionSource GetAwaiter() => this;
 
+        //[DebuggerStepThrough]
+        [DebuggerNonUserCode]
         public object GetResult()
         {
             // Копируем volatile ссылку.

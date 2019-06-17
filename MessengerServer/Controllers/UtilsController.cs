@@ -12,9 +12,9 @@ using Microsoft.Extensions.Logging;
 
 namespace MessengerServer.Controllers
 {
-    public sealed class UtilsController : ServerController, IUtilsController
+    public sealed class UtilsController : ServerController
     {
-        private const long AvatarQuality = 85; // В процентах.
+        private const long AvatarQuality = 90; // В процентах.
         private readonly ILogger _logger;
 
         public UtilsController(ILogger<UtilsController> logger)

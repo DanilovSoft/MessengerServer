@@ -14,9 +14,19 @@ namespace wRPC
             
         }
 
-        //protected virtual void OnException(Exception exception)
-        //{
+        protected BadRequestResult BadRequest(string message)
+        {
+            return new BadRequestResult(message);
+        }
 
-        //}
+        protected OkResult Ok()
+        {
+            return new OkResult();
+        }
+
+        protected OkObjectResult Ok(object result)
+        {
+            return new OkObjectResult(result);
+        }
     }
 }
