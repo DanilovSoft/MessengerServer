@@ -429,7 +429,7 @@ namespace wRPC
                                 // Ошибка десериализации запроса.
                                 {
                                     // Подготовить ответ с ошибкой.
-                                    var errorResponse = Message.FromError(header.Uid, $"Не удалось десериализовать запрос. Ошибка: \"{ex.Message}\".", StatusCode.InvalidRequestFormat);
+                                    var errorResponse = Message.FromResult(header.Uid, new InvalidRequestResult($"Не удалось десериализовать запрос. Ошибка: \"{ex.Message}\"."));
 
                                     // Передать на отправку результата с ошибкой.
                                     QueueSendMessage(socketQueue, errorResponse);
@@ -548,8 +548,10 @@ namespace wRPC
             // Сериализуем контент.
             using (var contentStream = new MemoryPoolStream())
             {
+                ActionContext actionContext = null;
+
                 // Записать в стрим запрос или результат запроса.
-                if (messageToSend.StatusCode == StatusCode.Request)
+                if (messageToSend.IsRequest)
                 {
                     var request = new RequestMessage
                     {
@@ -561,31 +563,25 @@ namespace wRPC
                 else
                 // Ответ на запрос.
                 {
-                    if (messageToSend.StatusCode == StatusCode.Ok)
-                    {
-                        // Записать тело ответа.
-                        messageToSend.ReceivedRequest.RequestContext.ActionToInvoke.SerializeObject(contentStream, messageToSend.Result);
-                    }
-                    else
-                    {
-                        // Записать сообщение ошибки.
-                        contentStream.WriteString(messageToSend.Error);
-                    }
+                    actionContext = new ActionContext(this, contentStream, messageToSend.ReceivedRequest?.RequestContext);
+
+                    // Записать контент.
+                    Execute(messageToSend.Result, actionContext);
                 }
 
                 // Размер контента.
                 int contentLength = (int)contentStream.Length;
 
                 // Готовим заголовок.
-                var header = new Header(messageToSend.Uid, messageToSend.StatusCode)
+                var header = new Header(messageToSend.Uid, actionContext?.StatusCode ?? StatusCode.Request)
                 {
                     ContentLength = contentLength,
                 };
 
-                if (messageToSend.StatusCode != StatusCode.Request)
+                if (actionContext != null)
                 {
                     // Записать в заголовок формат контента.
-                    header.ContentEncoding = messageToSend.ReceivedRequest.RequestContext.ActionToInvoke.ProducesEncoding;
+                    header.ContentEncoding = actionContext.ProducesEncoding;
                 }
 
                 mem = new MemoryPoolStream(contentLength);
@@ -601,6 +597,20 @@ namespace wRPC
             if (!_sendChannel.Writer.TryWrite(new SendJob(socketQueue, mem)))
             {
                 mem.Dispose();
+            }
+        }
+
+        private void Execute(object rawResult, ActionContext actionContext)
+        {
+            if (rawResult is IActionResult actionResult)
+            {
+                actionResult.ExecuteResult(actionContext);
+            }
+            else
+            {
+                actionContext.StatusCode = StatusCode.Ok;
+                actionContext.Request.ActionToInvoke.SerializeObject(actionContext.ResponseStream, rawResult);
+                actionContext.ProducesEncoding = actionContext.Request.ActionToInvoke.ProducesEncoding;
             }
         }
 
@@ -853,22 +863,6 @@ namespace wRPC
             return args;
         }
 
-        ///// <summary>
-        ///// Отправляет результат с ошибкой в новом потоке.
-        ///// </summary>
-        ///// <param name="message_"></param>
-        //private void QueueSendErrorResponse(SocketQueue socketQueue_, Message message_)
-        //{
-        //    ThreadPool.UnsafeQueueUserWorkItem(state =>
-        //    {
-        //        var tuple = ((SocketQueue socketQueue, Message errorMessage))state;
-
-        //        // Сериализовать и отправить результат.
-        //        QueueSendMessage(tuple.socketQueue, tuple.errorMessage);
-
-        //    }, state: (socketQueue_, message_)); // Без замыкания.
-        //}
-
         /// <summary>
         /// В новом потоке выполняет запрос клиента и отправляет ему результат или ошибку.
         /// </summary>
@@ -893,37 +887,28 @@ namespace wRPC
         private async Task<Message> GetResponseAsync(RequestMessage receivedRequest)
         {
             object rawResult;
+            Message messageToSend;
+
             try
             {
                 // Выполнить запрашиваемую функцию.
                 rawResult = await InvokeControllerAsync(receivedRequest);
             }
-            catch (RemoteException ex)
-            // Дружелюбная ошибка.
-            {
-                // Вернуть результат с ошибкой.
-                return Message.FromError(receivedRequest.Header.Uid, ex);
-            }
             catch (Exception ex)
             // Злая ошибка обработки запроса. Аналогично ошибке 500.
             {
                 // Прервать отладку.
-                DebugOnly.Break();
+                //DebugOnly.Break();
 
                 Debug.WriteLine(ex);
 
                 // Вернуть результат с ошибкой.
-                return Message.FromError(receivedRequest.Header.Uid, "Internal Server Error", StatusCode.InternalError);
+                return Message.FromResult(receivedRequest, new InternalErrorResult("Internal Server Error"));
             }
 
             // Запрашиваемая функция выполнена успешно.
             // Подготовить возвращаемый результат.
-            var messageToSend = Message.FromResult(receivedRequest.Header.Uid, rawResult);
-
-            // Запомнить звязанный запрос.
-            messageToSend.ReceivedRequest = receivedRequest;
-
-            return messageToSend;
+            return Message.FromResult(receivedRequest, rawResult);
         }
 
         [DebuggerStepThrough]

@@ -12,7 +12,7 @@ using DanilovSoft.MicroORM;
 
 namespace MessengerServer.Controllers
 {
-    public sealed class AuthController : ServerController, IAuthController
+    public sealed class AuthController : ServerController
     {
         private readonly SqlORM _sql;
         private readonly ILogger _logger;
@@ -25,11 +25,9 @@ namespace MessengerServer.Controllers
 
         [AllowAnonymous]
         [ProducesProtoBuf]
-        public async Task<AuthorizationResult> Authorize(string login, string password)
+        public async Task<IActionResult> Authorize(string login, string password)
         {
-            _logger.LogInformation($"Попытка выполнить авторизацию. login = {login}");
-
-            var user = await _sql.Sql(@"
+            AuthResult user = await _sql.Sql(@"
 SELECT u.user_id, u.login, p.avatar_url, p.display_name
 FROM users u
 JOIN user_profiles p USING(user_id)
@@ -39,26 +37,34 @@ WHERE
                 .Parameter("login", login?.ToLower())
                 .Parameter("pass", password)
                 .ToAsync()
-                .SingleOrDefault(new { id = 0, login = "", avatar_url = "", display_name = "" });
+                .SingleOrDefault<AuthResult>();
 
             if (user == null)
             {
                 _logger.LogWarning("Не верный логин и/или пароль");
+
+                return BadRequest("Не верный логин и/или пароль");
                 throw new RemoteException("Не верный логин и/или пароль");
             }
 
             // Авторизовываем текущее подключение.
-            BearerToken bearerToken = Context.Authorize(userId: user.id);
+            BearerToken bearerToken = Context.Authorize(userId: user.UserId);
 
-            _logger.LogInformation($"Авторизован пользователь: \"{user.login}\"");
+            _logger.LogInformation($"Авторизован пользователь: \"{user.Login}\"");
 
-            return new AuthorizationResult
+            return Ok(new AuthorizationResult
             {
                 BearerToken = bearerToken,
-                UserId = user.id,
-                UserName = user.login,
-                ImageUrl = new Uri(user.avatar_url)
-            };
+                UserId = user.UserId,
+                UserName = user.Login,
+                ImageUrl = new Uri(user.AvatarUrl)
+            });
+        }
+
+        [AllowAnonymous]
+        public void Register(string login, string password)
+        {
+            
         }
 
         [AllowAnonymous]

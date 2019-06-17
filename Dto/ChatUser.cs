@@ -1,14 +1,25 @@
 ﻿
+using ProtoBuf;
 using System;
 
 namespace Dto
 {
-    public class ChatUser
+    [ProtoContract]
+    public sealed class ChatUser
     {
-        public Uri AvatarUrl { get; set; }
-        public string Name { get; set; }
-        public long GroupId { get; set; }
-        public ChatMessage LastMessage { get; set; }
+        [ProtoMember(1)]
+        public Uri AvatarUrl;
+
+        [ProtoMember(2)]
+        public string Name;
+
+        [ProtoMember(3)]
+        public long GroupId;
+
+        [ProtoMember(4)]
+        public ChatMessage LastMessage;
+
+        [ProtoMember(5)]
         public bool IsOnline;
     }
 }

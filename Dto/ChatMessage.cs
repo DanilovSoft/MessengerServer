@@ -1,12 +1,21 @@
-﻿using System;
+﻿using ProtoBuf;
+using System;
 
 namespace Dto
 {
-    public class ChatMessage
+    [ProtoContract]
+    public sealed class ChatMessage
     {
-        public Guid MessageId { get; set; }
+        [ProtoMember(1)]
+        public Guid MessageId;
+
+        [ProtoMember(2)]
         public string Text;
-        public DateTime CreatedUtcDate { get; set; }
-        public bool IsMy { get; set; }
+
+        [ProtoMember(3)]
+        public DateTime CreatedUtcDate;
+
+        [ProtoMember(4)]
+        public bool IsMy;
     }
 }

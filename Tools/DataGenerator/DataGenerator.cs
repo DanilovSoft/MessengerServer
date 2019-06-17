@@ -162,6 +162,7 @@ namespace DataGenerator
             var messageFaker = new Faker<MessageDb>()
                 .RuleFor(p => p.MessageId, Guid.NewGuid)
                 .RuleFor(p => p.Text, f => f.Random.Words())
+                .RuleFor(p => p.CreatedUtc, f => f.Date.Recent())
                 .RuleFor(p => p.FileUrl, f => f.Image.PicsumUrl());
 
             var userGroups = _sql.Sql("SELECT user_id, group_id FROM user_groups").List<UserGroupDb>();
@@ -190,8 +191,6 @@ namespace DataGenerator
                     .Parameter("created", message.CreatedUtc)
                     .Execute();
             }
-
-            //await _provider.BatchInsertAsync(messageDbs.OrderBy(x => Guid.NewGuid()));
         }
     }
 }

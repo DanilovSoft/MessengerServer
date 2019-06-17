@@ -85,7 +85,7 @@ namespace wRPC
         /// <summary>
         /// Записывает строку в формате Utf-8.
         /// </summary>
-        public static void WriteString(this Stream destination, string message)
+        public static void WriteStringBinary(this Stream destination, string message)
         {
             using (var writer = new BinaryWriter(destination, Encoding.UTF8, leaveOpen: true))
                 writer.Write(message);

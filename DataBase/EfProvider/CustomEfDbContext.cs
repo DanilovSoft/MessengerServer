@@ -23,7 +23,7 @@ namespace EfProvider
 
         static CustomEfDbContext()
         {
-            EnumFluentConfig.MapEnum();
+            
         }
 
         // ctor.
@@ -44,20 +44,20 @@ namespace EfProvider
         {
             base.OnModelCreating(builder);
 
-            builder.HasPostgresExtension("uuid-ossp");
-            builder.HasPostgresExtension("pgcrypto");
+            //builder.HasPostgresExtension("uuid-ossp");
+            //builder.HasPostgresExtension("pgcrypto");
 
             foreach (Type modelType in _modeTypes)
             {
                 builder.Entity(modelType);
             }
 
-            EnumFluentConfig.Config(builder);
+            //EnumFluentConfig.Config(builder);
             //IndexFluentConfig.Config(builder);
             ForeignKeysFluentConfig.Config(builder);
             AutoIncrementConfig.Config(builder);
             DataSeedingConfig.Config(builder);
-            PostgresEfExtensions.Config(builder);
+            //PostgresEfExtensions.Config(builder);
         }
 
         private static class DateTimeMapper
