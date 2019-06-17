@@ -5,8 +5,6 @@ VisualStudioVersion = 16.0.28803.202
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "MessengerServer", "MessengerServer\MessengerServer.csproj", "{CF82EA1D-1D75-41AB-91A2-711E7D5A6CB9}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Contract", "Contract\Contract.csproj", "{80ED870E-3242-497A-A0D1-A4C68BF50106}"
-EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "wRPC", "wRPC\wRPC.csproj", "{1B7F7C87-34D0-4DF4-84CF-AAE97101F791}"
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "StubClient", "Tools\StubClient\StubClient.csproj", "{CFF18421-F020-4D7A-8F0A-D83ACCE53622}"
@@ -37,10 +35,6 @@ Global
 		{CF82EA1D-1D75-41AB-91A2-711E7D5A6CB9}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{CF82EA1D-1D75-41AB-91A2-711E7D5A6CB9}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{CF82EA1D-1D75-41AB-91A2-711E7D5A6CB9}.Release|Any CPU.Build.0 = Release|Any CPU
-		{80ED870E-3242-497A-A0D1-A4C68BF50106}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{80ED870E-3242-497A-A0D1-A4C68BF50106}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{80ED870E-3242-497A-A0D1-A4C68BF50106}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{80ED870E-3242-497A-A0D1-A4C68BF50106}.Release|Any CPU.Build.0 = Release|Any CPU
 		{1B7F7C87-34D0-4DF4-84CF-AAE97101F791}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{1B7F7C87-34D0-4DF4-84CF-AAE97101F791}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{1B7F7C87-34D0-4DF4-84CF-AAE97101F791}.Release|Any CPU.ActiveCfg = Release|Any CPU

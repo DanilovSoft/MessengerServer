@@ -5,7 +5,7 @@ using wRPC;
 
 namespace StubClient.Controllers
 {
-    public class HomeController : ClientController, IClientController
+    public class HomeController : ClientController
     {
         public HomeController()
         {

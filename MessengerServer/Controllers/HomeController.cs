@@ -1,5 +1,4 @@
-﻿using Contract;
-using DbModel;
+﻿using DbModel;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using System;
@@ -14,6 +13,7 @@ using System.Data.Common;
 using System.Collections.Generic;
 using DanilovSoft.MicroORM;
 using System.Text;
+using MessengerServer.Interfaces;
 
 namespace MessengerServer.Controllers
 {

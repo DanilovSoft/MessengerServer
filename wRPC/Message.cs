@@ -10,8 +10,8 @@ namespace wRPC
     {
         #region Debug
 
-        //[DebuggerBrowsable(DebuggerBrowsableState.Never)]
-        //private string DebugDisplay => "{" + $"\"{(StatusCode == StatusCode.Request ? $"Request: {ActionName}" : $"Result: {Result}")}\"" + "}";
+        [DebuggerBrowsable(DebuggerBrowsableState.Never)]
+        private string DebugDisplay => "{" + $"\"{(IsRequest ? $"Request: {ActionName}" : $"Result: {Result}")}\"" + "}";
 
         #endregion
 

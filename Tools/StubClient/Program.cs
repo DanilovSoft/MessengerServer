@@ -11,6 +11,8 @@ using System.Diagnostics;
 using System.Security;
 using System.Runtime.InteropServices;
 using System.Text;
+using StubClient.Interfaces;
+using System.Drawing;
 
 namespace StubClient
 {
@@ -39,6 +41,7 @@ namespace StubClient
                 var authController = client.GetProxy<IAuthController>();
                 var homeController = client.GetProxy<IHomeController>();
                 var utilsController = client.GetProxy<IUtilsController>();
+                var profileController = client.GetProxy<IProfileController>();
 
                 //AuthorizationResult regResult = authController.Register("Test123456", "my_password").GetAwaiter().GetResult();
                 
@@ -59,7 +62,17 @@ namespace StubClient
                 //var user = groups[3];
                 while (true)
                 {
-                    homeController.GetConversations().GetAwaiter().GetResult();
+                    //var img = Image.FromFile("D:\\test.jpg");
+
+                    //byte[] binaryImage;
+                    //using (var mem = new MemoryStream())
+                    //{
+                    //    img.Save(mem, img.RawFormat);
+                    //    binaryImage = mem.ToArray();
+                    //}
+                    //var uri = profileController.UpdateAvatar(binaryImage);
+
+                    //profileController.UpdateAvatar().GetAwaiter().GetResult();
                     //byte[] img = await utilsController.ShrinkImage(new Uri("https://s3.amazonaws.com/uifaces/faces/twitter/batsirai/128.jpg"), 183);
                     //File.WriteAllBytes("D:\\test.jpg", img);
 
