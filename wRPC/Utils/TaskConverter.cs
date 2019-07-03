@@ -43,11 +43,8 @@ namespace wRPC
         [DebuggerStepThrough]
         private static T Convert<T>(Task<object> task)
         {
-            using (task)
-            {
-                var result = (T)task.GetAwaiter().GetResult();
-                return result;
-            }
+            var result = (T)task.GetAwaiter().GetResult();
+            return result;
         }
 
         private static Func<Task<object>, object> Factory(Type key)
