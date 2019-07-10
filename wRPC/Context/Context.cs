@@ -41,7 +41,7 @@ namespace wRPC
         /// </summary>
         private readonly Dictionary<string, Type> _controllers;
         /// <summary>
-        /// Содержит все доступные для вызова экшены.
+        /// Содержит все доступные для вызова экшены контроллеров.
         /// </summary>
         private readonly ControllerActionsDictionary _controllerActions;
         private ServiceProvider _serviceProvider;
@@ -217,13 +217,9 @@ namespace wRPC
             else
             // Была вызвана синхронная функция.
             {
-                // При синхронном ожидании Task нужно выполнять Dispose.
-                using (taskObject)
-                {
-                    // Результатом может быть исключение.
-                    object rawResult = taskObject.GetAwaiter().GetResult();
-                    return rawResult;
-                }
+                // Результатом может быть исключение.
+                object rawResult = taskObject.GetAwaiter().GetResult();
+                return rawResult;
             }
         }
 

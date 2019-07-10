@@ -32,15 +32,15 @@ namespace wRPC
             return await task;
         }
 
-        //private static async ValueTask<object> Async<T>(ValueTask task)
-        //{
-        //    await task;
-        //    return null;
-        //}
+        private static async ValueTask<object> Async<T>(ValueTask task)
+        {
+            await task;
+            return null;
+        }
 
-        //private static async ValueTask<object> Async<T>(ValueTask<T> task)
-        //{
-        //    return await task;
-        //}
+        private static async ValueTask<object> Async<T>(ValueTask<T> task)
+        {
+            return await task;
+        }
     }
 }

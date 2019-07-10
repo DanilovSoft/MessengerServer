@@ -1,12 +1,12 @@
 ﻿// Vitalii Danilov
-// Version 1.1.0
+// Version 1.1.1
 
 using System.Buffers;
 using System.Threading;
 
 namespace System.IO
 {
-    public class MemoryPoolStream : Stream, IDisposable
+    public class MemoryPoolStream : MemoryStream, IDisposable
     {
         private static readonly ArrayPool<byte> _pool = ArrayPool<byte>.Shared;
         private readonly bool _clearOnReturn;
@@ -25,7 +25,7 @@ namespace System.IO
                     throw new ArgumentOutOfRangeException("Non-negative number required.");
             }
         }
-        public int Capacity
+        public override int Capacity
         {
             get => _arrayBuffer.Length;
             set
@@ -306,7 +306,7 @@ namespace System.IO
             _arrayBuffer = newArray;
         }
 
-        public byte[] ToArray()
+        public override byte[] ToArray()
         {
             ThrowIfDisposed();
 
