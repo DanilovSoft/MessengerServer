@@ -24,7 +24,7 @@ namespace wRPC
         /// <summary>
         /// Используется для синхронизации установки соединения.
         /// </summary>
-        private readonly AsyncLock _asyncLock;
+        private readonly ChannelLock _asyncLock;
         /// <summary>
         /// Адрес для подключеия к серверу.
         /// </summary>
@@ -74,7 +74,7 @@ namespace wRPC
         internal ClientConnection(Assembly controllersAssembly, Uri uri) : base(controllersAssembly)
         {
             _uri = uri;
-            _asyncLock = new AsyncLock();
+            _asyncLock = new ChannelLock();
         }
 
         /// <summary>
@@ -128,6 +128,7 @@ namespace wRPC
 
                     // Новый сокет.
                     var ws = new MyClientWebSocket();
+                    ws.Options.KeepAliveInterval = TimeSpan.FromSeconds(30);
 
                     try
                     {
@@ -198,11 +199,5 @@ namespace wRPC
 
         // Серверу всегда доступны методы клиента.
         protected override void InvokeMethodPermissionCheck(MethodInfo method, Type controllerType) { }
-
-        public override void Dispose()
-        {
-            base.Dispose();
-            _asyncLock.Dispose();
-        }
     }
 }
