@@ -6,7 +6,7 @@ namespace DynamicMethodsLib
     {
         public static T Create<T, TProxy>()
         {
-            return ProxyBuilder<TProxy>.CreateProxy<T>();
+            return ProxyBuilder<TProxy>.CreateProxy<T>(instance: default);
         }
 
         public static T Create<T, TProxy>(object instance)

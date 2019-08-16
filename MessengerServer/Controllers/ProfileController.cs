@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Drawing;
 using System.IO;
 using System.Text;
-using wRPC;
+using vRPC;
 
 namespace MessengerServer.Controllers
 {

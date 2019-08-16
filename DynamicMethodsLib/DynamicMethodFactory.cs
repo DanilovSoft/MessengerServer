@@ -74,7 +74,7 @@ namespace DynamicMethodsLib
             LocalBuilder localObject = il.DeclareLocal(typeof(object));
 
             // Что-бы скопировать ref и out переменные обратно во входной массив object[] args.
-            var outVarList = new List<(ParameterInfo param, int index, LocalBuilder local)>();
+            var outVarList = new List<OutRefArg>();
 
             for (int i = 0; i < parameters.Length; i++)
             {
@@ -88,7 +88,7 @@ namespace DynamicMethodsLib
                         parameterType = parameterType.GetElementType();
                         LocalBuilder localVariable = il.DeclareLocal(parameterType);
 
-                        outVarList.Add((parameter, i, localVariable));
+                        outVarList.Add(new OutRefArg(parameter, i, localVariable));
 
                         // Для 'out' не нужно создавать переменную.
                         if (!parameter.IsOut)
@@ -205,7 +205,7 @@ namespace DynamicMethodsLib
                         parameterType = parameterType.GetElementType();
                         LocalBuilder localVariable = il.DeclareLocal(parameterType);
 
-                        outVarList.Add((parameter, i, localVariable));
+                        outVarList.Add(new OutRefArg(parameter, i, localVariable));
 
                         // Для 'out' не нужно создавать переменную.
                         if (!parameter.IsOut)
@@ -334,12 +334,12 @@ namespace DynamicMethodsLib
                     // Загрузить args в стек.
                     il.Emit(OpCodes.Ldarg_1);
                     // Индекс массива args.
-                    il.Emit_Ldc_I4(outVar.index);
+                    il.Emit_Ldc_I4(outVar.Index);
                     // Загрузить локальную переменную.
-                    il.Emit(OpCodes.Ldloc_S, outVar.local);
+                    il.Emit(OpCodes.Ldloc_S, outVar.Local);
 
                     // ref Type => Type (System.Int32& => System.Int32).
-                    Type type = outVar.param.ParameterType.GetElementType();
+                    Type type = outVar.Param.ParameterType.GetElementType();
                     if (type.IsValueType)
                         il.Emit(OpCodes.Box, type);
 

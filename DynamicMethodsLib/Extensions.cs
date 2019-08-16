@@ -12,7 +12,7 @@ namespace System.Reflection
         /// <summary>
         /// Dynamic Method.
         /// </summary>
-        [DebuggerStepThrough]
+        //[DebuggerStepThrough]
         public static object InvokeFast(this MethodInfo methodInfo, object instance, object[] args, bool skipConvertion = true)
         {
             Func<object, object[], object> func = _methodsDict.GetOrAdd(methodInfo, m => DynamicMethodFactory.CreateMethodCall(m, skipConvertion));

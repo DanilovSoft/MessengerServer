@@ -18,7 +18,7 @@
   <ItemGroup>
     <ProjectReference Include="..\..\..\DanilovSoft.WebSocket\WebSockets\DanilovSoft.WebSocket.csproj" />
     <ProjectReference Include="..\..\Dto\Dto.csproj" />
-    <ProjectReference Include="..\..\wRPC\wRPC.csproj" />
+    <ProjectReference Include="..\..\vRPC\vRPC.csproj" />
   </ItemGroup>
 
 </Project>

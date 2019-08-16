@@ -27,7 +27,6 @@
   <ItemGroup>
     <ProjectReference Include="..\DataBase\DbModel\DbModel.csproj" />
     <ProjectReference Include="..\Dto\Dto.csproj" />
-    <ProjectReference Include="..\wRPC\wRPC.csproj" />
   </ItemGroup>
 
   <ItemGroup>

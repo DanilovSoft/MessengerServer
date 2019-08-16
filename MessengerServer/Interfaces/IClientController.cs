@@ -1,6 +1,6 @@
 ﻿using System;
 using System.Threading.Tasks;
-using wRPC;
+using vRPC;
 
 namespace MessengerServer.Interfaces
 {

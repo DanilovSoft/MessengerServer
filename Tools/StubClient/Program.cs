@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Threading;
 using System.Threading.Tasks;
-using wRPC;
+using vRPC;
 using Contract;
 using System.IO;
 using Microsoft.Extensions.DependencyInjection;
@@ -13,6 +13,8 @@ using System.Runtime.InteropServices;
 using System.Text;
 using StubClient.Interfaces;
 using System.Drawing;
+using DanilovSoft.WebSocket;
+using System.Net;
 
 namespace StubClient
 {
@@ -20,7 +22,7 @@ namespace StubClient
     {
         private const int Port = 65125;
 
-        static void Main()
+        static async Task Main()
         {
             Console.Title = "Клиент";
 
@@ -34,7 +36,7 @@ namespace StubClient
 
             #endregion
 
-            using (var client = new ClientConnection("127.0.0.1", Port))
+            using (var client = new ServerContext("127.0.0.1", Port))
             {
                 client.ConfigureService(ioc => { });
 
@@ -46,44 +48,34 @@ namespace StubClient
                 //AuthorizationResult regResult = authController.Register("Test123456", "my_password").GetAwaiter().GetResult();
                 
                 Console.WriteLine("Авторизация...");
-                AuthorizationResult authorizationResult;
-                try
-                {
-                    authorizationResult = authController.Authorize(login: "Test123456", password: "my_password").GetAwaiter().GetResult();
-                }
-                catch (Exception ex)
-                {
-                    return;
-                }
+                //AuthorizationResult authorizationResult;
+                //try
+                //{
+                //    authorizationResult = authController.Authorize(login: "Test123456", password: "my_password").GetAwaiter().GetResult();
+                //}
+                //catch (Exception ex)
+                //{
+                //    return;
+                //}
                 
-                client.BearerToken = authorizationResult.BearerToken.Key;
+                //client.BearerToken = authorizationResult.BearerToken.Key;
 
                 //ChatUser[] groups = await homeController.GetConversations();
                 //var user = groups[3];
                 while (true)
                 {
-                    //var img = Image.FromFile("D:\\test.jpg");
+                    await homeController.TestMeAsync();
 
-                    //byte[] binaryImage;
-                    //using (var mem = new MemoryStream())
-                    //{
-                    //    img.Save(mem, img.RawFormat);
-                    //    binaryImage = mem.ToArray();
-                    //}
-                    //var uri = profileController.UpdateAvatar(binaryImage);
+                    Thread.Sleep(-1);
 
-                    //profileController.UpdateAvatar().GetAwaiter().GetResult();
-                    //byte[] img = await utilsController.ShrinkImage(new Uri("https://s3.amazonaws.com/uifaces/faces/twitter/batsirai/128.jpg"), 183);
-                    //File.WriteAllBytes("D:\\test.jpg", img);
+                    //Console.Write("Введите сообдение: ");
+                    //string line = Console.ReadLine();
 
-                    Console.Write("Введите сообдение: ");
-                    string line = Console.ReadLine();
+                    //var sw = Stopwatch.StartNew();
+                    //homeController.SendMessage(line, 1).GetAwaiter().GetResult();
+                    //sw.Stop();
 
-                    var sw = Stopwatch.StartNew();
-                    homeController.SendMessage(line, 1).GetAwaiter().GetResult();
-                    sw.Stop();
-
-                    Console.WriteLine($"Время: {sw.ElapsedMilliseconds} msec");
+                    //Console.WriteLine($"Время: {sw.ElapsedMilliseconds} msec");
                 }
             }
         }

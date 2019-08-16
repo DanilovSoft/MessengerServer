@@ -8,7 +8,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using DBCore;
 using Dto;
-using wRPC;
+using vRPC;
 using System.Data.Common;
 using System.Collections.Generic;
 using DanilovSoft.MicroORM;
@@ -26,6 +26,12 @@ namespace MessengerServer.Controllers
         {
             _sql = sql;
             _logger = logger;
+        }
+
+        [AllowAnonymous]
+        public void TestMe()
+        {
+            
         }
 
         // Возвращает список контактов пользователя.

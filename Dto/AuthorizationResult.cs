@@ -1,6 +1,6 @@
 ﻿using System;
 using ProtoBuf;
-using wRPC;
+using vRPC;
 
 namespace Dto
 {

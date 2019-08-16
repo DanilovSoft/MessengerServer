@@ -2,14 +2,12 @@ using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
-using DBCore.Entities;
 using JetBrains.Annotations;
 
 namespace DbModel
 {
-    [UsedImplicitly]
     [Table("Groups")]
-    public class GroupDb : IEntity<long>, ICreatedUtc, IUpdatedUtc, IDeletedUtc
+    public class GroupDb
     {
         public long Id { get; set; }
         public int CreatorId { get; set; }

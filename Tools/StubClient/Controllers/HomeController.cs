@@ -1,7 +1,7 @@
 ﻿using Contract;
 using System;
 using System.Threading.Tasks;
-using wRPC;
+using vRPC;
 
 namespace StubClient.Controllers
 {
@@ -12,15 +12,15 @@ namespace StubClient.Controllers
             
         }
 
-        public Task OnMessage(string message, long fromGroupId, Guid messageId)
+        public async Task OnMessage(string message, long fromGroupId, Guid messageId)
         {
             Console.WriteLine($"Входное сообщение: {message}");
-            return Task.CompletedTask;
+            await Task.Delay(100);
         }
 
-        public Task Typing(long groupId)
+        public void Typing(long groupId)
         {
-            return Task.CompletedTask;
+            
         }
     }
 }

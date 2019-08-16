@@ -4,7 +4,7 @@ using System.Drawing.Drawing2D;
 using System.IO;
 using System.Net.Http;
 using System.Threading.Tasks;
-using wRPC;
+using vRPC;
 using System.Drawing.Imaging;
 using System.Linq;
 using Microsoft.Extensions.Logging;

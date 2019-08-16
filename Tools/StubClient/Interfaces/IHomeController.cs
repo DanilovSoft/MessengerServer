@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Threading.Tasks;
 using Dto;
-using wRPC;
+using vRPC;
 
 namespace Contract
 {
@@ -12,5 +12,6 @@ namespace Contract
         Task<ChatUser[]> GetConversations();
         Task<ChatMessage[]> GetHistory(long chatId, int count, DateTime? topMessageDate);
         Task Typing(long groupId);
+        Task TestMeAsync();
     }
 }

@@ -1,13 +1,11 @@
 using System.ComponentModel.DataAnnotations.Schema;
-using DBCore.Entities;
 using DbModel.DbTypes;
 using JetBrains.Annotations;
 
 namespace DbModel
 {
-    [UsedImplicitly]
     [Table("UserProfiles")]
-    public class UserProfileDb : IEntity<int>
+    public class UserProfileDb
     {
         public int Id { get; set; }
 

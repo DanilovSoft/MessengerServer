@@ -17,7 +17,6 @@
     </ItemGroup>
 
     <ItemGroup>
-      <ProjectReference Include="..\..\DataBase\DBCore\DBCore.csproj" />
       <ProjectReference Include="..\..\DataBase\DbModel\DbModel.csproj" />
     </ItemGroup>
 

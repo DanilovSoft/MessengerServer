@@ -1,11 +1,13 @@
 ﻿using System;
 using System.Threading;
-using wRPC;
+using vRPC;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Configuration;
 using System.IO;
 using MessengerServer.Extensions;
 using Microsoft.Extensions.Logging;
+using System.Net;
+using System.Threading.Tasks;
 
 namespace MessengerServer
 {
@@ -13,7 +15,7 @@ namespace MessengerServer
     {
         private const int Port = 65125;
 
-        static void Main()
+        static async Task Main()
         {
             Console.Title = "Сервер";
             using (var mutex = new Mutex(initiallyOwned: true, $"MessengerServer_Port:{Port}", out bool createdNew))
@@ -22,22 +24,27 @@ namespace MessengerServer
                 {
                     IConfiguration configuration = BuildConfiguration();
 
-                    using (var listener = new Listener(Port))
+                    using (var listener = new Listener(IPAddress.Any, Port))
                     {
-                        listener.IoC.AddDb(configuration);
-
-                        listener.IoC.AddLogging(loggingBuilder =>
+                        listener.ConfigureService(ioc =>
                         {
-                            loggingBuilder
-                                .AddConsole()
-                                .AddDebug();
+                            ioc.AddDb(configuration);
+
+                            ioc.AddLogging(loggingBuilder =>
+                            {
+                                loggingBuilder
+                                    .AddConsole()
+                                    .AddDebug();
+                            });
                         });
 
-                        listener.StartAccept();
-                        ILogger logger = listener.ServiceProvider.GetRequiredService<ILogger<Program>>();
-                        logger.LogInformation("Ожидание подключений...");
+                        listener.Configure(serviceProvider => 
+                        {
+                            ILogger logger = serviceProvider.GetRequiredService<ILogger<Program>>();
+                            logger.LogInformation("Ожидание подключений...");
+                        });
 
-                        Thread.Sleep(-1);
+                        await listener.RunAsync();
                     }
                 }
             }

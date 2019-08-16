@@ -3,7 +3,7 @@ using System;
 using System.Linq;
 using System.Threading.Tasks;
 using DbModel;
-using wRPC;
+using vRPC;
 using DBCore;
 using Microsoft.Extensions.Logging;
 using DanilovSoft.MicroORM;
@@ -117,5 +117,12 @@ ON CONFLICT (login) DO NOTHING RETURNING user_id")
 
             return authorized;
         }
+
+        //[AllowAnonymous]
+        //public async Task<string> TestStop()
+        //{
+        //    await Task.Delay(1000);
+        //    return "OK";
+        //}
     }
 }

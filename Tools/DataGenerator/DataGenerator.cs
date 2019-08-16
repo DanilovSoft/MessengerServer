@@ -4,7 +4,6 @@ using System.Linq;
 using System.Threading.Tasks;
 using Bogus;
 using DanilovSoft.MicroORM;
-using DBCore;
 using DbModel;
 using DbModel.DbTypes;
 using Microsoft.EntityFrameworkCore;

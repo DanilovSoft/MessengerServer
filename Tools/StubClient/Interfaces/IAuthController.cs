@@ -1,7 +1,7 @@
 ﻿using System.Security;
 using System.Threading.Tasks;
 using Dto;
-using wRPC;
+using vRPC;
 
 namespace Contract
 {
@@ -10,5 +10,7 @@ namespace Contract
     {
         Task<AuthorizationResult> Authorize(string login, string password);
         Task<AuthorizationResult> Register(string login, string password);
+
+        Task<string> TestStop();
     }
 }

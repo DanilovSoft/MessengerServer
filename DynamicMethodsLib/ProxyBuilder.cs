@@ -89,9 +89,9 @@ namespace DynamicMethodsLib
             int methodCount = 0;
             var methodsDict = new Dictionary<int, MethodInfo>();
             MethodInfo[] methods = typeof(TIface).GetMethods();
-            var fields = new List<(string fieldName, MethodInfo MethodInfo)>(methods.Length);
+            var fields = new List<FieldMethodInfo>(methods.Length);
 
-            foreach (var v in typeof(TIface).GetProperties())
+            foreach (PropertyInfo v in typeof(TIface).GetProperties())
             {
                 fieldsList.Add(v.Name);
 
@@ -155,19 +155,19 @@ namespace DynamicMethodsLib
 
             foreach (MethodInfo method in typeof(TIface).GetMethods())
             {
-            //    const MethodAttributes ExplicitImplementation =
-            //MethodAttributes.Private |
-            //MethodAttributes.Final |
-            //MethodAttributes.Virtual |
-            //MethodAttributes.HideBySig |
-            //MethodAttributes.NewSlot;
+                //    const MethodAttributes ExplicitImplementation =
+                //MethodAttributes.Private |
+                //MethodAttributes.Final |
+                //MethodAttributes.Virtual |
+                //MethodAttributes.HideBySig |
+                //MethodAttributes.NewSlot;
 
                 const MethodAttributes ImplicitImplementation =
-            MethodAttributes.Public |
-            MethodAttributes.Final |
-            MethodAttributes.Virtual |
-            MethodAttributes.HideBySig |
-            MethodAttributes.NewSlot;
+                    MethodAttributes.Public |
+                    MethodAttributes.Final |
+                    MethodAttributes.Virtual |
+                    MethodAttributes.HideBySig |
+                    MethodAttributes.NewSlot;
 
                 if (!method.IsSpecialName)
                 {
@@ -178,7 +178,7 @@ namespace DynamicMethodsLib
                     int methodId = methodCount++;
                     FieldBuilder fieldMethodInfo = classType.DefineField($"_method{methodId}", typeof(MethodInfo), FieldAttributes.Private | FieldAttributes.InitOnly);
 
-                    fields.Add((fieldMethodInfo.Name, method));
+                    fields.Add(new FieldMethodInfo(fieldMethodInfo.Name, method));
                     methodsDict.Add(methodId, method);
 
                     ILGenerator il = methodBuilder.GetILGenerator();
@@ -201,9 +201,9 @@ namespace DynamicMethodsLib
                 proxy = (TIface)Activator.CreateInstance(ti);
             }
 
-            foreach ((string fieldName, MethodInfo MethodInfo) item in fields)
+            foreach (var item in fields)
             {
-                FieldInfo field = ti.GetField(item.fieldName, BindingFlags.NonPublic | BindingFlags.Instance);
+                FieldInfo field = ti.GetField(item.FieldName, BindingFlags.NonPublic | BindingFlags.Instance);
                 field.SetValue(proxy, item.MethodInfo);
             }
 
@@ -233,7 +233,7 @@ namespace DynamicMethodsLib
             bool hasOutArgs = parameters.Any(x => x.ParameterType.IsByRef);
 
             // Что-бы скопировать ref и out переменные.
-            var outVarList = new List<(ParameterInfo param, int index)>();
+            var outVarList = new List<ParamMethodInfo>();
 
             for (int i = 0; i < parameters.Length; i++)
             {
@@ -246,7 +246,7 @@ namespace DynamicMethodsLib
                     // Параметр по ссылке.
                     {
                         // В конце нужно скопировать значения обратно в Out и Ref параметры.
-                        outVarList.Add((parameter, i));
+                        outVarList.Add(new ParamMethodInfo(parameter, i));
 
                         // ref Type => Type (System.Int32& => System.Int32).
                         parameterType = parameterType.GetElementType();
@@ -313,21 +313,21 @@ namespace DynamicMethodsLib
                 #region Копирование Out и Ref параметров
 
                 // Копируем значения локальных out и ref параметров обратно в массив object[] args.
-                foreach ((ParameterInfo param, int index) in outVarList)
+                foreach (var v in outVarList)
                 {
-                    il.Emit_Ldarg(index + 1);
+                    il.Emit_Ldarg(v.Index + 1);
 
                     // Загрузить в стек args.
                     il.Emit(OpCodes.Ldloc_0);
 
                     // Индекс массива args.
-                    il.Emit_Ldc_I4(index);
+                    il.Emit_Ldc_I4(v.Index);
 
                     // refObj = array[1];
                     il.Emit(OpCodes.Ldelem_Ref);
 
                     // ref Type => Type (System.Int32& => System.Int32).
-                    Type paramType = param.ParameterType.GetElementType();
+                    Type paramType = v.Param.ParameterType.GetElementType();
                     if (paramType.IsValueType)
                     {
                         // Распаковать значимый тип.
