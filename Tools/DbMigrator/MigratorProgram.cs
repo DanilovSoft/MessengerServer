@@ -60,7 +60,7 @@ namespace DbMigrator
                 .AddJsonFile("appsettings.local.json", optional: true);
 
             IConfigurationRoot configuration = configurationBuilder.Build();
-
+            
             var modelStore = new ModelStore();
 
             var loggerFactory = new LoggerFactory();
